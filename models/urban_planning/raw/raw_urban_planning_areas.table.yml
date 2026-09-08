@@ -1,0 +1,35 @@
+schema: urban_planning
+name: raw_urban_planning_areas
+description: 不動産情報ライブラリ XKT001 都市計画決定GISデータ（都市計画区域・区域区分）
+published: false
+fields:
+  - name: prefecture
+    description: 都道府県名
+  - name: city_code
+    description: 市区町村コード
+  - name: city_name
+    description: 市区町村名
+  - name: kubun_id
+    description: 区分コード
+  - name: area_classification_ja
+    description: 区域区分
+  - name: decision_date
+    description: 設定年月日（最終告示日）
+  - name: decision_classification
+    description: 設定区分
+  - name: decision_maker
+    description: 設定者名
+  - name: notice_number
+    description: 告示番号（最終）
+  - name: notice_number_s
+    description: 告示番号（当初）
+  - name: first_decision_date
+    description: 当初決定日
+  - name: geometry
+    description: GeoJSON geometry (Polygon) 文字列。タイル境界で切り出された断片
+  - name: _z
+    description: タイルズームレベル (取得時メタ)
+  - name: _x
+    description: タイル X 座標 (取得時メタ)
+  - name: _y
+    description: タイル Y 座標 (取得時メタ)

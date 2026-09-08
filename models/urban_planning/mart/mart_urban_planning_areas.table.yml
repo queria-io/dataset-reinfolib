@@ -1,0 +1,38 @@
+schema: urban_planning
+name: mart_urban_planning_areas
+title: 都市計画区域・区域区分
+description: 国土交通省 不動産情報ライブラリの都市計画決定GISデータに基づく、全国の都市計画区域・市街化区域・市街化調整区域のポリゴン。1行が市区町村と区域区分の組で、告示の情報を伴う。地点が市街化区域か市街化調整区域かの判定に使える。
+published: true
+sources:
+  - path: https://www.reinfolib.mlit.go.jp/
+fields:
+  - name: prefecture_code
+    title: 都道府県コード
+  - name: prefecture_name
+    title: 都道府県名
+  - name: city_code
+    title: 市区町村コード
+  - name: city_name
+    title: 市区町村名
+  - name: kubun_id
+    title: 区分コード
+    description: 21=都市計画区域、22=市街化区域、23=市街化調整区域
+  - name: area_classification
+    title: 区域区分
+  - name: decision_date
+    title: 設定年月日
+    description: 最終告示日。原典が和暦・西暦・略記の混在した文字列で公開しているため、そのまま収録している
+  - name: decision_classification
+    title: 設定区分
+  - name: decision_maker
+    title: 設定者名
+  - name: notice_number
+    title: 告示番号
+    description: 最終告示の番号
+  - name: first_notice_number
+    title: 当初告示番号
+  - name: first_decision_date
+    title: 当初決定日
+  - name: geom
+    title: 区域のポリゴン
+    description: EPSG:6668。原典が分割して配信する区域を、市区町村・区域区分ごとに結合したもの

@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: mart_urban_planning_areas
+    description: 国土交通省 不動産情報ライブラリの都市計画決定GISデータに基づく、全国の都市計画区域・市街化区域・市街化調整区域のポリゴン。1行が市区町村と区域区分の組で、告示の情報を伴う。
+    columns:
+      - name: prefecture_code
+      - name: prefecture_name
+      - name: city_code
+      - name: city_name
+      - name: kubun_id
+      - name: area_classification
+      - name: decision_date
+      - name: decision_classification
+      - name: decision_maker
+      - name: notice_number
+      - name: first_notice_number
+      - name: first_decision_date
+      - name: geom

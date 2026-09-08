@@ -24,3 +24,10 @@ models:
         +materialized: view
       mart:
         +materialized: table
+    urban_planning:
+      raw:
+        +materialized: table
+      stg:
+        +materialized: view
+      mart:
+        +materialized: table
