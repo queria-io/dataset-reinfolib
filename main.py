@@ -50,6 +50,28 @@ JAPAN_BBOXES: list[tuple[float, float, float, float]] = [
     (141.9, 26.4, 142.4, 27.3),  # 小笠原諸島
 ]
 
+# -- XCT001: 鑑定評価書情報 --
+APPRAISAL_TABLE = "reinfolib._source.appraisal_reports"
+# 用途区分。年・都道府県・用途区分の 3 つが必須で、組み合わせに該当が無いと 404 が返る
+APPRAISAL_DIVISIONS = ["00", "03", "05", "07", "09", "10", "13", "20"]
+# API が返すのは最新年から 5 年分
+APPRAISAL_YEARS = 5
+# 鑑定評価書はその年の地価公示と一緒に公表されたあと書き換わらないので、取得済みの
+# 組み合わせは 30 日空けてから取り直す。公表が都道府県ごとにずれた年に取りこぼした分も
+# ここで拾い直す。全 1880 組み合わせの一巡はおよそ 4 分で、予算を切るほどではない
+APPRAISAL_REFRESH_INTERVAL_DAYS = 30
+APPRAISAL_STATE_TABLE = "reinfolib._source.appraisal_fetch_state"
+# 鑑定評価書は 109 項目あり、項目名は年・用途区分をまたいで固定。ここでは JSON 文字列
+# のまま保持して raw スキーマを 4 カラムにし、構造化は stg 層の json_extract に委ねる
+APPRAISAL_SCHEMA = pa.schema(
+    [
+        ("properties", pa.string()),
+        ("_year", pa.int32()),
+        ("_area_code", pa.string()),
+        ("_division", pa.string()),
+    ]
+)
+
 # -- XPT002: 地価公示・地価調査ポイント --
 LAND_TABLE = "reinfolib._source.land_prices"
 LAND_TILES_TABLE = "reinfolib._source.land_price_tiles"
@@ -145,6 +167,14 @@ def main() -> None:
     with _ducklake_connect() as (conn, secret), ReinfolibClient(api_key) as client:
         conn.execute("CREATE SCHEMA IF NOT EXISTS reinfolib._source")
         ingest_trade_prices(conn, client, secret, areas=areas, quarters=all_quarters)
+
+        appraisal_latest = _latest_appraisal_year(client)
+        appraisal_years = list(
+            range(appraisal_latest - APPRAISAL_YEARS + 1, appraisal_latest + 1)
+        )
+        ingest_appraisal_reports(
+            conn, client, secret, areas=areas, years=appraisal_years
+        )
 
         land_latest = _latest_land_year(client)
         discover_land_price_tiles(conn, client, secret, year=land_latest)
@@ -246,6 +276,141 @@ def _completed_pairs(
         }
     except duckdb.CatalogException:
         return set()
+
+
+def _latest_appraisal_year(client: ReinfolibClient) -> int:
+    """当年の鑑定評価書が公開済みかを代表の組み合わせで確認し、最新の有効年を返す。"""
+    current = date.today().year
+    for year in (current, current - 1):
+        if client.get_appraisal_reports(year=year, area="13", division="05"):
+            return year
+    return current - 1
+
+
+def ingest_appraisal_reports(
+    conn: duckdb.DuckDBPyConnection,
+    client: ReinfolibClient,
+    secret: Secret,
+    *,
+    areas: list[str],
+    years: list[int],
+) -> None:
+    """XCT001: 地価公示の標準地ごとの鑑定評価書を取得する。
+
+    タイル指定ではなく、年 × 都道府県 × 用途区分の総当たりで取る。取得日を状態表に
+    持ち、APPRAISAL_REFRESH_INTERVAL_DAYS より新しい組み合わせは飛ばす。該当が無く
+    404 が返った組み合わせも記録するので、空振りをビルドのたびに撃ち直さない。
+    """
+    _ensure_appraisal_table(conn)
+    state = _load_appraisal_state(conn)
+    cutoff = date.today() - timedelta(days=APPRAISAL_REFRESH_INTERVAL_DAYS)
+    combinations = [
+        (year, area, division)
+        for year, area, division in product(years, areas, APPRAISAL_DIVISIONS)
+        if state.get((year, area, division), date.min) <= cutoff
+    ]
+    total = len(years) * len(areas) * len(APPRAISAL_DIVISIONS)
+    logger.info(
+        "appraisal: %d/%d 組み合わせを取得 (%d日以内に取得済みは飛ばす)",
+        len(combinations),
+        total,
+        APPRAISAL_REFRESH_INTERVAL_DAYS,
+    )
+
+    today = date.today()
+    fetched = 0
+    for done, (year, area, division) in enumerate(combinations):
+        rows = client.get_appraisal_reports(year=year, area=area, division=division)
+        state[(year, area, division)] = today
+        if (done + 1) % 100 == 0:
+            _save_appraisal_state(conn, state)
+            secret.refresh_if_due()
+        if not rows:
+            continue
+        fetched += 1
+
+        batch = [
+            {
+                "properties": json.dumps(row, ensure_ascii=False),
+                "_year": year,
+                "_area_code": area,
+                "_division": division,
+            }
+            for row in rows
+        ]
+        conn.register("_batch", pa.Table.from_pylist(batch, schema=APPRAISAL_SCHEMA))
+        conn.execute("BEGIN")
+        conn.execute(
+            f"DELETE FROM {APPRAISAL_TABLE} "
+            "WHERE _year = ? AND _area_code = ? AND _division = ?",
+            [year, area, division],
+        )
+        conn.execute(f"INSERT INTO {APPRAISAL_TABLE} SELECT * FROM _batch")
+        conn.execute("COMMIT")
+        conn.unregister("_batch")
+        secret.refresh_if_due()
+
+        logger.info(
+            "XCT001 %d area=%s division=%s: %d rows", year, area, division, len(rows)
+        )
+
+    _save_appraisal_state(conn, state)
+    logger.info("appraisal ingest done: %d combinations fetched", fetched)
+
+
+def _ensure_appraisal_table(conn: duckdb.DuckDBPyConnection) -> None:
+    """列が固定なので、1 件も取れなかったビルドでも表だけは先に作っておく。
+
+    表が無いままだと raw_appraisal_reports の作成でカタログエラーになり、
+    dbt run ごと落ちて他のテーブルの公開まで止まる。
+    """
+    conn.register("_appraisal_empty", APPRAISAL_SCHEMA.empty_table())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS {APPRAISAL_TABLE} AS SELECT * FROM _appraisal_empty"
+    )
+    conn.unregister("_appraisal_empty")
+
+
+#: 取得状況の表の列。fetched_on は最後に取りに行った日で、行が無ければ未取得。
+#: 404 が返った組み合わせもここには残るので、空振りを毎ビルド撃ち直さずに済む。
+_APPRAISAL_STATE_SCHEMA = pa.schema(
+    [
+        ("year", pa.int32()),
+        ("area_code", pa.string()),
+        ("division", pa.string()),
+        ("fetched_on", pa.date32()),
+    ]
+)
+
+
+def _load_appraisal_state(
+    conn: duckdb.DuckDBPyConnection,
+) -> dict[tuple[int, str, str], date]:
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS {APPRAISAL_STATE_TABLE} "
+        "(year INTEGER, area_code VARCHAR, division VARCHAR, fetched_on DATE)"
+    )
+    rows = conn.execute(
+        f"SELECT year, area_code, division, fetched_on FROM {APPRAISAL_STATE_TABLE}"
+    ).fetchall()
+    return {(r[0], r[1], r[2]): r[3] for r in rows}
+
+
+def _save_appraisal_state(
+    conn: duckdb.DuckDBPyConnection,
+    state: dict[tuple[int, str, str], date],
+) -> None:
+    """状態表を丸ごと書き直す。2000 行に満たないので毎回書き直しても安い。"""
+    rows = [
+        {"year": year, "area_code": area, "division": division, "fetched_on": on}
+        for (year, area, division), on in sorted(state.items())
+    ]
+    conn.register("_state", pa.Table.from_pylist(rows, schema=_APPRAISAL_STATE_SCHEMA))
+    conn.execute("BEGIN")
+    conn.execute(f"DELETE FROM {APPRAISAL_STATE_TABLE}")
+    conn.execute(f"INSERT INTO {APPRAISAL_STATE_TABLE} SELECT * FROM _state")
+    conn.execute("COMMIT")
+    conn.unregister("_state")
 
 
 def _generate_quarters(

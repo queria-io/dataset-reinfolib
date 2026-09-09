@@ -9,5 +9,7 @@ sources:
         description: 不動産情報ライブラリ XIT001 取引価格・成約価格データ
       - name: land_prices
         description: 不動産情報ライブラリ XPT002 地価公示・地価調査ポイントデータ
+      - name: appraisal_reports
+        description: 不動産情報ライブラリ XCT001 鑑定評価書情報
       - name: urban_planning_areas
         description: 不動産情報ライブラリ XKT001 都市計画決定GISデータ（都市計画区域・区域区分）

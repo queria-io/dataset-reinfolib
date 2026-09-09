@@ -1,0 +1,303 @@
+schema: main
+name: mart_appraisal_reports
+title: 鑑定評価書情報
+description: 国土交通省 不動産情報ライブラリの鑑定評価書情報。地価公示の標準地ごとに不動産鑑定士が作成した鑑定評価書の内容を1通1行で収録する。評価額のほか、取引事例比較法・収益還元法・原価法・開発法の適用結果と算定内訳、比準に用いた取引事例5件の価格、標準地の形状・接面道路・法令規制を持つ。1つの標準地につき2通の鑑定評価書があり、評価額は評価書ごとに異なる。
+published: true
+sources:
+  - path: https://www.reinfolib.mlit.go.jp/
+fields:
+  - name: year
+    title: 価格時点年
+  - name: prefecture_code
+    title: 都道府県コード
+  - name: city_code
+    title: 市区町村コード
+    description: 5桁。lg_code や address_br と結合できる
+  - name: use_division_code
+    title: 用途区分コード
+    description: 00=住宅地、03=宅地見込地、05=商業地、07=準工業地、09=工業地、10=調整区域内宅地、13=現況林地、20=林地（都道府県地価調査）
+  - name: standard_lot_number
+    title: 標準地番号
+    description: mart_land_prices の standard_lot_number と同じ表記。一意なのは都道府県の中だけ
+  - name: district_name
+    title: 地域名
+  - name: use_category
+    title: 用途区分
+    description: 住宅地、商業地、工業地等
+  - name: branch_number
+    title: 連番
+    description: 標準地番号の枝番
+  - name: appraised_price
+    title: 1㎡当たりの価格
+    description: この鑑定評価書の評価額。円/㎡
+  - name: roadside_price_year
+    title: 路線価の年
+  - name: inheritance_tax_roadside_price
+    title: 相続税路線価
+    description: 円/㎡
+  - name: roadside_price_multiplier
+    title: 路線価の倍率
+  - name: roadside_price_multiplier_type
+    title: 路線価の倍率種別
+  - name: location_lot_number
+    title: 所在地番
+  - name: location_residence_indication
+    title: 住居表示
+  - name: location_temporary_replotting_number
+    title: 仮換地番号
+  - name: cadastral_area
+    title: 地積
+    description: ㎡
+  - name: cadastral_area_private_road
+    title: 地積のうち私道分
+    description: ㎡
+  - name: land_shape
+    title: 形状
+  - name: shape_ratio_frontage
+    title: 形状比（間口）
+  - name: shape_ratio_depth
+    title: 形状比（奥行）
+  - name: shape_direction
+    title: 形状の方位
+  - name: shape_flatness
+    title: 平坦
+  - name: shape_slope
+    title: 傾斜度
+    description: 度
+  - name: land_use_status
+    title: 土地利用の現況
+  - name: building_structure_code
+    title: 建物構造コード
+  - name: ground_floors
+    title: 地上階数
+  - name: underground_floors
+    title: 地下階数
+  - name: surrounding_land_use
+    title: 周辺の利用状況
+  - name: front_road_direction
+    title: 前面道路の方位
+  - name: front_road_station_front_category
+    title: 前面道路の駅前区分
+  - name: front_road_elevation
+    title: 前面道路の高低位置
+  - name: front_road_width
+    title: 前面道路の幅員
+    description: m
+  - name: front_road_pavement
+    title: 前面道路の舗装状況
+  - name: front_road_type
+    title: 前面道路の道路種別
+  - name: side_road_direction
+    title: 側道の方位
+  - name: side_road_contact_status
+    title: 側道等の接面状況
+  - name: water_supply
+    title: 水道
+    description: 1=有、0=無
+  - name: gas_supply
+    title: ガス
+    description: 1=有、0=無
+  - name: sewer_supply
+    title: 下水道
+    description: 1=有、0=無
+  - name: nearest_station
+    title: 最寄りの交通施設
+  - name: station_distance
+    title: 交通施設までの距離
+    description: m
+  - name: station_proximity_category
+    title: 交通施設への近接区分
+  - name: area_division
+    title: 区域区分
+    description: 市街化区域、市街化調整区域等
+  - name: zoning_use_category
+    title: 用途地域
+  - name: building_coverage_ratio
+    title: 指定建ぺい率
+    description: %
+  - name: floor_area_ratio
+    title: 指定容積率
+    description: %
+  - name: fireproof_category
+    title: 防火地域
+  - name: forest_act
+    title: 森林法の規制
+  - name: natural_park_act
+    title: 自然公園法の規制
+  - name: other_district_1
+    title: その他地域地区等1
+  - name: other_district_2
+    title: その他地域地区等2
+  - name: other_district_3
+    title: その他地域地区等3
+  - name: height_district_1_type
+    title: 高度地区1の種
+  - name: height_district_1_category
+    title: 高度地区1の高度区分
+    description: 最高、最低等
+  - name: height_district_1_height
+    title: 高度地区1の高度
+    description: m
+  - name: height_district_2_type
+    title: 高度地区2の種
+  - name: height_district_2_category
+    title: 高度地区2の高度区分
+    description: 最高、最低等
+  - name: height_district_2_height
+    title: 高度地区2の高度
+    description: m
+  - name: standard_building_coverage_ratio
+    title: 基準建ぺい率
+    description: %
+  - name: standard_floor_area_ratio
+    title: 基準容積率
+    description: %
+  - name: natural_environment_code_1
+    title: 自然環境等コード1
+  - name: natural_environment_code_2
+    title: 自然環境等コード2
+  - name: natural_environment_code_3
+    title: 自然環境等コード3
+  - name: natural_environment_note
+    title: 自然環境等の文言
+  - name: comparison_method_price
+    title: 取引事例比較法による比準価格
+    description: 円/㎡。適用していない場合は0
+  - name: deduction_method_price
+    title: 控除法による控除後価格
+    description: 円/㎡。適用していない場合は0
+  - name: income_method_price
+    title: 収益還元法による収益価格
+    description: 円/㎡。適用していない場合は0
+  - name: cost_method_price
+    title: 原価法による積算価格
+    description: 円/㎡。適用していない場合は0
+  - name: development_method_price
+    title: 開発法による価格
+    description: 円/㎡。適用していない場合は0
+  - name: comparable_a_trade_price
+    title: 比準価格算定内訳 事例a 取引価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_a_estimated_price
+    title: 比準価格算定内訳 事例a 推定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_a_standard_price
+    title: 比準価格算定内訳 事例a 標準価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_a_assessed_price
+    title: 比準価格算定内訳 事例a 査定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_b_trade_price
+    title: 比準価格算定内訳 事例b 取引価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_b_estimated_price
+    title: 比準価格算定内訳 事例b 推定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_b_standard_price
+    title: 比準価格算定内訳 事例b 標準価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_b_assessed_price
+    title: 比準価格算定内訳 事例b 査定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_c_trade_price
+    title: 比準価格算定内訳 事例c 取引価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_c_estimated_price
+    title: 比準価格算定内訳 事例c 推定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_c_standard_price
+    title: 比準価格算定内訳 事例c 標準価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_c_assessed_price
+    title: 比準価格算定内訳 事例c 査定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_d_trade_price
+    title: 比準価格算定内訳 事例d 取引価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_d_estimated_price
+    title: 比準価格算定内訳 事例d 推定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_d_standard_price
+    title: 比準価格算定内訳 事例d 標準価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_d_assessed_price
+    title: 比準価格算定内訳 事例d 査定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_e_trade_price
+    title: 比準価格算定内訳 事例e 取引価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_e_estimated_price
+    title: 比準価格算定内訳 事例e 推定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_e_standard_price
+    title: 比準価格算定内訳 事例e 標準価格
+    description: 円/㎡。事例が無い場合は0
+  - name: comparable_e_assessed_price
+    title: 比準価格算定内訳 事例e 査定価格
+    description: 円/㎡。事例が無い場合は0
+  - name: cost_raw_land_price
+    title: 積算価格算定内訳 素地の取得価格
+    description: 円/㎡
+  - name: cost_development_work
+    title: 積算価格算定内訳 造成工事費
+    description: 円/㎡
+  - name: cost_replacement_cost
+    title: 積算価格算定内訳 再調達原価
+    description: 円/㎡
+  - name: income_gross_revenue
+    title: 収益価格算定内訳 総収益
+    description: 円
+  - name: income_total_expense
+    title: 収益価格算定内訳 総費用
+    description: 円
+  - name: income_net_revenue
+    title: 収益価格算定内訳 純収益
+    description: 円
+  - name: income_net_revenue_building
+    title: 収益価格算定内訳 建物に帰属する純収益
+    description: 円
+  - name: income_net_revenue_land
+    title: 収益価格算定内訳 土地に帰属する純収益
+    description: 円
+  - name: income_net_revenue_adjusted
+    title: 収益価格算定内訳 未収入期間修正後の純収益
+    description: 円
+  - name: income_capitalization_rate
+    title: 収益価格算定内訳 還元利回り
+    description: %
+  - name: development_revenue_present_value
+    title: 開発法価格算定内訳 収入の現価の総和
+    description: 円
+  - name: development_expense_present_value
+    title: 開発法価格算定内訳 支出の現価の総和
+    description: 円
+  - name: development_return_rate
+    title: 開発法価格算定内訳 投下資本収益率
+    description: %
+  - name: development_unit_sales_price
+    title: 開発法価格算定内訳 販売単価（住宅）
+    description: 円/㎡
+  - name: development_saleable_floor_area
+    title: 開発法価格算定内訳 分譲可能床面積
+    description: ㎡
+  - name: development_construction_cost
+    title: 開発法価格算定内訳 建築工事費
+    description: 円/㎡
+  - name: development_total_floor_area
+    title: 開発法価格算定内訳 延床面積
+    description: ㎡
+  - name: published_price
+    title: 公示価格
+    description: 鑑定評価書に記載された価格。円/㎡。公表された公示価格とは一致しないことがあり、公表値は mart_land_prices の current_price にある
+  - name: change_rate
+    title: 変動率
+    description: この鑑定評価書の評価額の対前年変動率。%
+  - name: latitude
+    title: 緯度
+    description: EPSG:6668
+  - name: longitude
+    title: 経度
+    description: EPSG:6668
+  - name: geom
+    title: 標準地の位置
+    description: EPSG:6668 のポイント
