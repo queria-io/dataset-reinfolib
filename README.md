@@ -1,7 +1,7 @@
 ## データ出典
 
 [国土交通省 不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/)の API から取得した、
-全国の不動産取引価格・地価公示および都市計画決定GISデータです。
+全国の不動産取引価格・地価公示・鑑定評価書および都市計画決定GISデータです。
 
 ## テーブル: mart_trade_prices
 
@@ -35,6 +35,36 @@
 - use_category / zoning_use_category: 用途区分 / 用途地域
 - nearest_station / station_distance: 最寄駅 / 駅からの道路距離
 - geom: 地点（EPSG:6668）
+
+## テーブル: mart_appraisal_reports
+
+地価公示の標準地について、不動産鑑定士が作成した鑑定評価書の内容。1行が1通で、
+2022年から収録しています。mart_land_prices が「いくらか」を持つのに対し、
+こちらは「なぜその価格か」を持ちます。
+
+主なカラム:
+
+- standard_lot_number: 標準地番号（mart_land_prices と同じ表記）
+- year / prefecture_code / city_code: 価格時点年 / 都道府県コード / 市区町村コード
+- use_category / use_division_code: 用途区分 / 用途区分コード
+- appraised_price: この鑑定評価書の評価額（円/平米）
+- comparison_method_price / income_method_price / cost_method_price / development_method_price:
+  取引事例比較法 / 収益還元法 / 原価法 / 開発法による価格
+- comparable_a_* 〜 comparable_e_*: 比準に用いた取引事例5件の取引価格・推定価格・標準価格・査定価格
+- income_gross_revenue / income_net_revenue / income_capitalization_rate: 収益価格の算定内訳
+- cadastral_area / land_shape / front_road_width: 地積 / 形状 / 前面道路の幅員
+- area_division / zoning_use_category / building_coverage_ratio / floor_area_ratio: 法令上の規制
+- geom: 標準地の位置（EPSG:6668）
+
+1つの標準地につき2通の鑑定評価書があり、評価額は評価書ごとに異なります。appraised_price も
+published_price も鑑定評価書に書かれた値で、公表される公示価格とは一致しないことがあるため、
+公表値は mart_land_prices の current_price を参照してください。適用していない鑑定評価手法は
+価格が0で入ります。
+
+mart_land_prices と結合するときは year・prefecture_code・standard_lot_number の3つで
+突き合わせます。標準地番号が一意なのは都道府県の中だけで、mart_land_prices は同じ地点を
+年ごとに持つためです。収録は地価公示だけなので、mart_land_prices 側は land_price_type = 0
+に絞ります。1地点に評価書が2通あるので、結合は1対2になります。
 
 ## テーブル: mart_urban_planning_areas
 

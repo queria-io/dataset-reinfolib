@@ -88,3 +88,15 @@ models:
         description: タイル Y 座標 (取得時メタ)
       - name: _z
         description: タイルズームレベル (取得時メタ)
+
+  - name: raw_appraisal_reports
+    description: 不動産情報ライブラリ XCT001 鑑定評価書情報
+    columns:
+      - name: properties
+        description: 鑑定評価書の項目。XCT001 のレスポンスを JSON 文字列で保持し、stg で json_extract により構造化する
+      - name: _year
+        description: 価格時点年 (取得時メタ)
+      - name: _area_code
+        description: 都道府県コード (取得時メタ)
+      - name: _division
+        description: 用途区分コード (取得時メタ)
