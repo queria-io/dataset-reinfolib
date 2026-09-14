@@ -114,10 +114,10 @@ fields:
     title: 用途地域
   - name: building_coverage_ratio
     title: 指定建ぺい率
-    description: %
+    description: "%"
   - name: floor_area_ratio
     title: 指定容積率
-    description: %
+    description: "%"
   - name: fireproof_category
     title: 防火地域
   - name: forest_act
@@ -148,10 +148,10 @@ fields:
     description: m
   - name: standard_building_coverage_ratio
     title: 基準建ぺい率
-    description: %
+    description: "%"
   - name: standard_floor_area_ratio
     title: 基準容積率
-    description: %
+    description: "%"
   - name: natural_environment_code_1
     title: 自然環境等コード1
   - name: natural_environment_code_2
@@ -264,7 +264,7 @@ fields:
     description: 円
   - name: income_capitalization_rate
     title: 収益価格算定内訳 還元利回り
-    description: %
+    description: "%"
   - name: development_revenue_present_value
     title: 開発法価格算定内訳 収入の現価の総和
     description: 円
@@ -273,7 +273,7 @@ fields:
     description: 円
   - name: development_return_rate
     title: 開発法価格算定内訳 投下資本収益率
-    description: %
+    description: "%"
   - name: development_unit_sales_price
     title: 開発法価格算定内訳 販売単価（住宅）
     description: 円/㎡
