@@ -135,7 +135,15 @@ def _ducklake_connect() -> Generator[tuple[duckdb.DuckDBPyConnection, Secret]]:
     catalog_path = os.environ["QUERIA_CATALOG_PATH"]
     data_url = os.environ["QUERIA_DATA_URL"]
     is_s3 = data_url.startswith("s3://")
-    conn = duckdb.connect(":memory:")
+    # ビルドが公開ストレージを読むときの名乗り。queria run が queria-build として
+    # 渡す。profiles.yml の config_options と同じ値を、こちらのセッションにも通す。
+    # 取り込みは dbt ではなくこの接続で行い、増分取得が公開済みの parquet を読むので、
+    # ここが抜けると読み取りの大半が匿名のまま出ていき、data.queria.io の利用統計に
+    # 自分のビルドが利用者として混ざる。接続を開くときにしか決められないので config= で渡す
+    conn = duckdb.connect(
+        ":memory:",
+        config={"custom_user_agent": os.environ.get("QUERIA_USER_AGENT", "")},
+    )
     try:
         conn.execute("INSTALL ducklake; LOAD ducklake;")
         conn.execute("INSTALL sqlite; LOAD sqlite;")
