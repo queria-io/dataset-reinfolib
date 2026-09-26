@@ -34,6 +34,7 @@
 - cadastral_area: 地積（平米）
 - use_category / zoning_use_category: 用途区分 / 用途地域
 - nearest_station / station_distance: 最寄駅 / 駅からの道路距離
+- front_road_width: 前面道路の幅員（0.1m 単位。60 は 6.0m。0 と 9999 は幅員を表さない）
 - geom: 地点（EPSG:6668）
 
 ## テーブル: mart_appraisal_reports
@@ -52,7 +53,7 @@
   取引事例比較法 / 収益還元法 / 原価法 / 開発法による価格
 - comparable_a_* 〜 comparable_e_*: 比準に用いた取引事例5件の取引価格・推定価格・標準価格・査定価格
 - income_gross_revenue / income_net_revenue / income_capitalization_rate: 収益価格の算定内訳
-- cadastral_area / land_shape / front_road_width: 地積 / 形状 / 前面道路の幅員
+- cadastral_area / land_shape / front_road_width: 地積 / 形状 / 前面道路の幅員（m。mart_land_prices は 0.1m 単位）
 - area_division / zoning_use_category / building_coverage_ratio / floor_area_ratio: 法令上の規制
 - geom: 標準地の位置（EPSG:6668）
 
