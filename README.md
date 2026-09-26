@@ -34,7 +34,7 @@
 - cadastral_area: 地積（平米）
 - use_category / zoning_use_category: 用途区分 / 用途地域
 - nearest_station / station_distance: 最寄駅 / 駅からの道路距離
-- front_road_width: 前面道路の幅員（0.1m 単位の整数。60 は 6.0m）
+- front_road_width: 前面道路の幅員（0.1m 単位。60 は 6.0m。0 と 9999 は幅員を表さない）
 - geom: 地点（EPSG:6668）
 
 ## テーブル: mart_appraisal_reports

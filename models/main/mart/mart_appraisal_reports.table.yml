@@ -82,7 +82,7 @@ fields:
     title: 前面道路の高低位置
   - name: front_road_width
     title: 前面道路の幅員
-    description: m。mart_land_prices の front_road_width は 0.1m 単位
+    description: m。0 は幅員を表さず、駅前広場に面する地点などに付く。mart_land_prices の front_road_width は 0.1m 単位
   - name: front_road_pavement
     title: 前面道路の舗装状況
   - name: front_road_type

@@ -65,7 +65,7 @@ fields:
     title: 前面道路の状況
   - name: front_road_width
     title: 前面道路の幅員
-    description: 0.1m 単位の整数。60 は幅員 6.0m を表す。mart_appraisal_reports の front_road_width は m 単位
+    description: 0.1m 単位。60 は幅員 6.0m を表す。0 と 9999 は幅員を表さない。0 は駅前広場に面する地点などに付く。mart_appraisal_reports の front_road_width は m 単位
   - name: zoning_use_category
     title: 用途地域
   - name: building_coverage_ratio
