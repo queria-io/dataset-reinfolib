@@ -8,10 +8,12 @@ sources:
 fields:
   - name: prefecture_code
     title: 都道府県コード
+    semantic: { role: entity, name: prefecture }
   - name: prefecture_name
     title: 都道府県名
   - name: city_code
     title: 市区町村コード
+    semantic: { role: entity, name: city }
   - name: city_name
     title: 市区町村名
   - name: kubun_id
