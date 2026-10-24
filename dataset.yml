@@ -13,6 +13,7 @@ keywords:
   - 国土交通省
 homepage: https://github.com/queria-io/dataset-reinfolib
 language: ja
+themes: [housing_land]
 
 licenses:
   - JP-GOV-STD-2.0
