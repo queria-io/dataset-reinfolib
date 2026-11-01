@@ -96,6 +96,9 @@ TILE_Z = 11
 # 数ビルドを使って回り直し、その間のビルドは空振りする。
 TILE_REFRESH_INTERVAL_DAYS = 30
 
+# 取得の失敗がこの回数続いたら、API 側の障害とみなしてそのレイヤーを打ち切る。
+TILE_MAX_CONSECUTIVE_FAILURES = 3
+
 # -- XKT001: 都市計画決定GISデータ (都市計画区域・区域区分) --
 URBAN_TABLE = "reinfolib._source.urban_planning_areas"
 URBAN_TILE_STATE = "reinfolib._source.urban_planning_tile_state"
@@ -121,6 +124,9 @@ TILE_LAYERS: list[tuple[str, str]] = [
 # 10 レイヤーの一巡はおよそ 200 分。1 ビルドに足すのは 20 分までにとどめ、
 # 初回のバックフィルは 10 ビルドほどかけて埋める。
 TILE_LAYERS_BUDGET_MINUTES = 20
+# mart で形をメッシュコードから組み立てるレイヤー。全国で約 600 万行あり、
+# 使わない geometry を _source に持たない
+TILE_LAYERS_WITHOUT_GEOMETRY = {"liquefaction_tendency"}
 TILE_LAYER_SCHEMA = pa.schema(
     [
         ("properties", pa.string()),
@@ -858,7 +864,10 @@ def _fetch_features(
         return []
     resp.raise_for_status()
     body = resp.json()
-    return body.get("features", []) if isinstance(body, dict) else []
+    features = body.get("features", []) if isinstance(body, dict) else []
+    # 形状の無い feature は geometry が "{}" になり、stg の ST_GeomFromGeoJSON が
+    # 1 行でも当たると dbt run ごと落ちるので、ここで落とす
+    return [f for f in features if isinstance(f, dict) and f.get("geometry")]
 
 
 def _ingest_tiles(
@@ -899,6 +908,8 @@ def _ingest_tiles(
     )
 
     written = 0
+    fetched = 0
+    failures = 0
     for done, (x, y) in enumerate(queue):
         if time.monotonic() >= deadline:
             logger.info(
@@ -908,21 +919,30 @@ def _ingest_tiles(
                 len(queue) - done,
             )
             break
-        # 1 タイルの失敗でビルド全体を落とさない。取れた分の状態を保存して
-        # このレイヤーを打ち切り、残りは次のビルドが拾う
+        # 1 タイルの失敗でビルド全体を落とさない。失敗したタイルは状態に入れずに
+        # 飛ばし、次のビルドで取り直す。打ち切りにすると、取れないタイルが 1 枚
+        # あるだけで毎回その手前で止まり、レイヤーが先へ進まなくなる。続けて
+        # 失敗するときは API 側の障害とみなしてこのレイヤーを打ち切る
         try:
             rows = fetch_rows(x, y)
         except (requests.RequestException, ValueError) as exc:
+            failures += 1
             logger.warning(
-                "%s: タイル (%d, %d) の取得に失敗したので打ち切り: %s",
+                "%s: タイル (%d, %d) の取得に失敗 (%d 回連続): %s",
                 label,
                 x,
                 y,
+                failures,
                 exc,
             )
-            break
+            if failures >= TILE_MAX_CONSECUTIVE_FAILURES:
+                logger.warning("%s: 失敗が続くので打ち切り", label)
+                break
+            continue
+        failures = 0
         write_rows(x, y, rows)
         state[(x, y)] = today
+        fetched += 1
         written += len(rows)
         if (done + 1) % 200 == 0:
             _save_tile_state(conn, state_table, state)
@@ -930,7 +950,10 @@ def _ingest_tiles(
             logger.info(
                 "  %s tiles %d/%d, rows %d", label, done + 1, len(queue), written
             )
-    _save_tile_state(conn, state_table, state)
+    # 何も取らなかったビルドで状態表を書き直すと、空振りのたびにデータファイルと
+    # スナップショットが増えるだけなので書かない
+    if fetched:
+        _save_tile_state(conn, state_table, state)
 
     logger.info(
         "%s: %d rows written, 未処理の残り %d タイル",
@@ -1051,8 +1074,10 @@ def ingest_tile_layers(
             label=f"{endpoint} {name}",
             state_table=f"{table}_tile_state",
             tiles=tiles,
-            fetch_rows=lambda x, y, endpoint=endpoint: [
-                _layer_feature_to_row(f, x, y)
+            fetch_rows=lambda x, y, endpoint=endpoint, name=name: [
+                _layer_feature_to_row(
+                    f, x, y, keep_geometry=name not in TILE_LAYERS_WITHOUT_GEOMETRY
+                )
                 for f in _fetch_features(session, endpoint, z=TILE_Z, x=x, y=y)
             ],
             write_rows=lambda x, y, rows, table=table: _replace_tile_rows(
@@ -1064,7 +1089,9 @@ def ingest_tile_layers(
             break
 
 
-def _layer_feature_to_row(f: dict, x: int, y: int) -> dict:
+def _layer_feature_to_row(
+    f: dict, x: int, y: int, *, keep_geometry: bool = True
+) -> dict:
     """GeoJSON feature を TILE_LAYER_SCHEMA の行 dict に変換する。
 
     _id / _index は配信側の検索インデックスの都合で、再構築のたびに変わるので落とす。
@@ -1076,7 +1103,11 @@ def _layer_feature_to_row(f: dict, x: int, y: int) -> dict:
     }
     return {
         "properties": json.dumps(props, ensure_ascii=False),
-        "geometry": json.dumps(f.get("geometry") or {}, ensure_ascii=False),
+        "geometry": (
+            json.dumps(f.get("geometry") or {}, ensure_ascii=False)
+            if keep_geometry
+            else None
+        ),
         "_z": TILE_Z,
         "_x": x,
         "_y": y,
