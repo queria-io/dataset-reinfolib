@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: mart_location_optimization_plans
+    description: 国土交通省 不動産情報ライブラリの都市計画決定GISデータ（令和7年度）に基づく、立地適正化計画の区域のポリゴン。立地適正化計画区域・居住誘導区域・都市機能誘導区域などを区域の種類ごとに持つ。原典は区域をタイルの境界で切って配信するため、属性が同じ断片を 1 つのポリゴンに結合して収録している。設定年月日と告示番号は原典が和暦・西暦・略記の混在した文字列で公開しているため、そのままの形で入っている。地方公共団体が GIS データを保有していない・公表できないなどの理由で、都市計画決定があっても収録されていない区域がある。範囲は概ねの位置で、建築確認申請や重要事項説明の根拠には使えない。
+    columns:
+      - name: prefecture_code
+      - name: prefecture_name
+      - name: city_code
+      - name: city_name
+      - name: kubun_id
+      - name: zone_name
+      - name: area_classification
+      - name: decision_date
+      - name: decision_classification
+      - name: decision_maker
+      - name: notice_number
+      - name: first_notice_number
+      - name: first_decision_date
+      - name: geom

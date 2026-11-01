@@ -1,0 +1,28 @@
+schema: disaster
+name: mart_liquefaction_tendency
+title: 地形区分に基づく液状化の発生傾向
+description: 国土交通省 不動産情報ライブラリが配信する、国土交通省都市局の「地形区分に基づく液状化の発生傾向図」。全国を微地形で分類した 250m メッシュごとに、地形が示す一般的な地盤の性質から見た液状化の発生傾向の強弱を持つ。特定の地震や震度を想定した危険度ではなく、地形どうしで相対的に比べた傾向。メッシュの中で面積の大きい地形で分類しているので、埋立地や盛土などの人工改変地の細かい位置は反映されていない。傾向が弱いメッシュでも、その中の人工改変地では液状化が起きることがある。水部（河道・湖沼）は原則として評価していない。
+published: true
+sources:
+  - path: https://www.reinfolib.mlit.go.jp/
+  - path: https://www.mlit.go.jp/toshi/toshi_tobou_tk_000038.html
+fields:
+  - name: mesh_code
+    title: 250m メッシュコード
+    description: 10 桁。3 次メッシュ（8 桁）を 2 分の 1、4 分の 1 に分けた番号を続けたもの
+  - name: mesh3_code
+    title: 3 次メッシュコード
+    description: mesh_code の先頭 8 桁。1km メッシュの統計と結合するときに使う
+  - name: landform_code
+    title: 微地形区分コード
+    description: 28 区分
+  - name: landform
+    title: 微地形区分
+  - name: liquefaction_level
+    title: 液状化の発生傾向
+    description: 原典の 6 段階の区分。値と意味の対応は liquefaction_note で読む
+  - name: liquefaction_note
+    title: 液状化の発生傾向の説明
+  - name: geom
+    title: メッシュのポリゴン
+    description: EPSG:6668。メッシュコードから組み立てた範囲

@@ -13,3 +13,23 @@ sources:
         description: 不動産情報ライブラリ XCT001 鑑定評価書情報
       - name: urban_planning_areas
         description: 不動産情報ライブラリ XKT001 都市計画決定GISデータ（都市計画区域・区域区分）
+      - name: use_districts
+        description: 不動産情報ライブラリ XKT002 都市計画決定GISデータ（用途地域）
+      - name: location_optimization_plans
+        description: 不動産情報ライブラリ XKT003 都市計画決定GISデータ（立地適正化計画）
+      - name: fire_prevention_districts
+        description: 不動産情報ライブラリ XKT014 都市計画決定GISデータ（防火・準防火地域）
+      - name: district_plans
+        description: 不動産情報ライブラリ XKT023 都市計画決定GISデータ（地区計画）
+      - name: high_utilization_districts
+        description: 不動産情報ライブラリ XKT024 都市計画決定GISデータ（高度利用地区）
+      - name: planned_roads
+        description: 不動産情報ライブラリ XKT030 都市計画決定GISデータ（都市計画道路）
+      - name: special_watch_areas
+        description: 不動産情報ライブラリ XNT001 重要土地等調査法の特別注視区域
+      - name: evacuation_sites
+        description: 不動産情報ライブラリ XGT001 国土地理院の指定緊急避難場所
+      - name: disaster_history
+        description: 不動産情報ライブラリ XST001 国土調査（土地履歴調査）の災害履歴
+      - name: liquefaction_tendency
+        description: 不動産情報ライブラリ XKT025 地形区分に基づく液状化の発生傾向図

@@ -31,3 +31,13 @@ models:
         +materialized: view
       mart:
         +materialized: table
+    disaster:
+      stg:
+        +materialized: view
+      mart:
+        +materialized: table
+    regulation:
+      stg:
+        +materialized: view
+      mart:
+        +materialized: table

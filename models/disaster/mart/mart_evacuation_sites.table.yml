@@ -1,0 +1,54 @@
+schema: disaster
+name: mart_evacuation_sites
+title: 指定緊急避難場所
+description: 国土交通省 不動産情報ライブラリが配信する、国土地理院の指定緊急避難場所の位置（ポイント）。災害対策基本法に基づいて市町村長が指定した避難場所で、洪水・土砂災害・高潮・地震・津波・大規模な火事・内水氾濫・火山現象のどの災害に対応するかを持つ。対応する災害は避難場所ごとに違うので、災害の種類で絞ってから使う。配信データは原典の更新をいつも反映しているわけではなく、最新の状況は市町村に確認する。
+published: true
+sources:
+  - path: https://www.reinfolib.mlit.go.jp/
+  - path: https://www.gsi.go.jp/bousaichiri/hinanbasho.html
+fields:
+  - name: common_id
+    title: 共通ID
+    description: 国土地理院が付けた ID。「E + 市区町村コード 5 桁 + 連番」
+  - name: prefecture_code
+    title: 都道府県コード
+    semantic: { role: entity, name: prefecture }
+  - name: city_code
+    title: 市区町村コード
+    description: 共通 ID の 2〜6 桁目
+    semantic: { role: entity, name: city }
+  - name: prefecture_and_city
+    title: 都道府県名及び市町村名
+  - name: facility_name
+    title: 施設・場所名
+  - name: address
+    title: 住所
+  - name: for_flood
+    title: 洪水
+  - name: for_landslide
+    title: 崖崩れ、土石流及び地滑り
+  - name: for_storm_surge
+    title: 高潮
+  - name: for_earthquake
+    title: 地震
+  - name: for_tsunami
+    title: 津波
+  - name: for_large_fire
+    title: 大規模な火事
+  - name: for_inland_flooding
+    title: 内水氾濫
+  - name: for_volcano
+    title: 火山現象
+  - name: same_address_as_shelter
+    title: 指定避難所との住所同一
+    description: true のとき、同じ住所に指定避難所（避難生活を送る施設）もある
+  - name: remarks
+    title: 備考
+    description: 想定収容人数などが原典の書き方のまま入る
+  - name: longitude
+    title: 経度
+  - name: latitude
+    title: 緯度
+  - name: geom
+    title: 位置
+    description: EPSG:6668

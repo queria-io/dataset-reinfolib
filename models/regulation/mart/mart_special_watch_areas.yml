@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: mart_special_watch_areas
+    description: 重要土地等調査法に基づく特別注視区域のポリゴン。
+    columns:
+      - name: area_name
+      - name: geom
