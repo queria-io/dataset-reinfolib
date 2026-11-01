@@ -15,7 +15,7 @@ fields:
     semantic: { role: entity, name: prefecture }
   - name: city_code
     title: 市区町村コード
-    description: 共通 ID の 2〜6 桁目
+    description: 共通 ID の 2〜6 桁目。政令指定都市は区ではなく市のコード（神戸市は 28100）
     semantic: { role: entity, name: city }
   - name: prefecture_and_city
     title: 都道府県名及び市町村名

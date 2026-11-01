@@ -86,8 +86,9 @@ LAND_START_YEAR = 1995
 LAND_BUDGET_SECONDS = 30 * 60
 
 # -- タイルで配信される API (XKT001 ほか) の共通設定 --
-# いずれも z11 から取得でき、z11 の全 10170 タイルを一巡するのにおよそ 20 分
-# かかる (XKT001 の実測で空タイルが 87% で 0.09 秒、区域のあるタイルが 0.29 秒)。
+# TILE_LAYERS を含めていずれも z11 で取得でき、点の XGT001 も z11 で返ることを
+# 確かめてある。z11 の全 10170 タイルを一巡するのにおよそ 20 分かかる
+# (XKT001 の実測で空タイルが 87% で 0.09 秒、区域のあるタイルが 0.29 秒)。
 TILE_Z = 11
 
 # 年度単位でしか更新されないデータなので、取得済みタイルは 30 日空けてから
@@ -907,7 +908,19 @@ def _ingest_tiles(
                 len(queue) - done,
             )
             break
-        rows = fetch_rows(x, y)
+        # 1 タイルの失敗でビルド全体を落とさない。取れた分の状態を保存して
+        # このレイヤーを打ち切り、残りは次のビルドが拾う
+        try:
+            rows = fetch_rows(x, y)
+        except (requests.RequestException, ValueError) as exc:
+            logger.warning(
+                "%s: タイル (%d, %d) の取得に失敗したので打ち切り: %s",
+                label,
+                x,
+                y,
+                exc,
+            )
+            break
         write_rows(x, y, rows)
         state[(x, y)] = today
         written += len(rows)
@@ -939,14 +952,18 @@ def _replace_tile_rows(
 
     区域が消えたタイルを空のまま残せるよう、行が無くても削除だけは実行する。
     """
+    batch = pa.Table.from_pylist(rows, schema=schema) if rows else None
     conn.execute("BEGIN")
-    conn.execute(f"DELETE FROM {table} WHERE _x = ? AND _y = ?", [x, y])
-    if rows:
-        conn.register("_batch", pa.Table.from_pylist(rows, schema=schema))
-        conn.execute(f"INSERT INTO {table} SELECT * FROM _batch")
-    conn.execute("COMMIT")
-    if rows:
-        conn.unregister("_batch")
+    try:
+        conn.execute(f"DELETE FROM {table} WHERE _x = ? AND _y = ?", [x, y])
+        if batch is not None:
+            conn.register("_batch", batch)
+            conn.execute(f"INSERT INTO {table} SELECT * FROM _batch")
+            conn.unregister("_batch")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def _ensure_table(
@@ -1019,13 +1036,15 @@ def ingest_tile_layers(
     次へ移る。予算は環境変数 REINFOLIB_TILE_BUDGET_MINUTES で上書きできる
     (手元で一気に埋めるとき用)。
     """
-    minutes = int(
-        os.environ.get("REINFOLIB_TILE_BUDGET_MINUTES", TILE_LAYERS_BUDGET_MINUTES)
+    minutes = float(
+        os.environ.get("REINFOLIB_TILE_BUDGET_MINUTES") or TILE_LAYERS_BUDGET_MINUTES
     )
     deadline = time.monotonic() + minutes * 60
+    # 予算切れで後ろのレイヤーまで回らないビルドでも、dbt が読む表はそろえておく
+    for _, name in TILE_LAYERS:
+        _ensure_table(conn, f"reinfolib._source.{name}", TILE_LAYER_SCHEMA)
     for endpoint, name in TILE_LAYERS:
         table = f"reinfolib._source.{name}"
-        _ensure_table(conn, table, TILE_LAYER_SCHEMA)
         _ingest_tiles(
             conn,
             secret,
