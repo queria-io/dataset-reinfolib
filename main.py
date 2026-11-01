@@ -875,13 +875,14 @@ def _ingest_tiles(
     secret: Secret,
     *,
     label: str,
+    table: str,
+    schema: pa.Schema,
     state_table: str,
     tiles: list[tuple[int, int]],
     fetch_rows: Callable[[int, int], list[dict]],
-    write_rows: Callable[[int, int, list[dict]], None],
     deadline: float,
 ) -> None:
-    """タイル単位の取得を予算の中で進める。
+    """タイル単位の取得を予算の中で進め、table のタイルごとの行を入れ替える。
 
     未取得のタイルを先に片付け、そのあとは最終取得日が TILE_REFRESH_INTERVAL_DAYS
     より古いものを古い順に取り直す。deadline で打ち切り、続きは次のビルドが
@@ -940,7 +941,7 @@ def _ingest_tiles(
                 break
             continue
         failures = 0
-        write_rows(x, y, rows)
+        _replace_tile_rows(conn, table, schema, x, y, rows)
         state[(x, y)] = today
         fetched += 1
         written += len(rows)
@@ -1018,15 +1019,14 @@ def ingest_urban_planning_areas(
         conn,
         secret,
         label="urban planning",
+        table=URBAN_TABLE,
+        schema=URBAN_SCHEMA,
         state_table=URBAN_TILE_STATE,
         tiles=tiles,
         fetch_rows=lambda x, y: [
             _urban_feature_to_row(f, x, y)
             for f in _fetch_features(session, "XKT001", z=TILE_Z, x=x, y=y)
         ],
-        write_rows=lambda x, y, rows: _replace_tile_rows(
-            conn, URBAN_TABLE, URBAN_SCHEMA, x, y, rows
-        ),
         deadline=time.monotonic() + URBAN_BUDGET_SECONDS,
     )
 
@@ -1072,6 +1072,8 @@ def ingest_tile_layers(
             conn,
             secret,
             label=f"{endpoint} {name}",
+            table=table,
+            schema=TILE_LAYER_SCHEMA,
             state_table=f"{table}_tile_state",
             tiles=tiles,
             fetch_rows=lambda x, y, endpoint=endpoint, name=name: [
@@ -1080,9 +1082,6 @@ def ingest_tile_layers(
                 )
                 for f in _fetch_features(session, endpoint, z=TILE_Z, x=x, y=y)
             ],
-            write_rows=lambda x, y, rows, table=table: _replace_tile_rows(
-                conn, table, TILE_LAYER_SCHEMA, x, y, rows
-            ),
             deadline=deadline,
         )
         if time.monotonic() >= deadline:
