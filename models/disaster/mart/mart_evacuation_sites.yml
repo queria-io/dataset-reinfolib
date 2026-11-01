@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: mart_evacuation_sites
+    description: 国土地理院の指定緊急避難場所の位置。
+    columns:
+      - name: common_id
+      - name: prefecture_code
+      - name: city_code
+      - name: prefecture_and_city
+      - name: facility_name
+      - name: address
+      - name: for_flood
+      - name: for_landslide
+      - name: for_storm_surge
+      - name: for_earthquake
+      - name: for_tsunami
+      - name: for_large_fire
+      - name: for_inland_flooding
+      - name: for_volcano
+      - name: same_address_as_shelter
+      - name: remarks
+      - name: longitude
+      - name: latitude
+      - name: geom

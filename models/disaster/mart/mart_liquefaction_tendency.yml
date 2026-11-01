@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: mart_liquefaction_tendency
+    description: 地形区分に基づく液状化の発生傾向（250m メッシュ）。
+    columns:
+      - name: mesh_code
+      - name: mesh3_code
+      - name: landform_code
+      - name: landform
+      - name: liquefaction_level
+      - name: liquefaction_note
+      - name: geom

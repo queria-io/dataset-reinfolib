@@ -1,7 +1,7 @@
 ## データ出典
 
 [国土交通省 不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/)の API から取得した、
-全国の不動産取引価格・地価公示・鑑定評価書および都市計画決定GISデータです。
+全国の不動産取引価格・地価公示・鑑定評価書、都市計画決定GISデータ、防災情報、重要土地等調査法の特別注視区域です。
 
 ## テーブル: mart_trade_prices
 
@@ -85,6 +85,35 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 原典は区域を細かく分割した形で配信しているため、同じ市区町村・同じ区域区分のものを
 1つのポリゴンに結合して収録しています。設定年月日と告示番号は原典が和暦・西暦・略記の
 混在した文字列で公開しているため、そのままの形で入っています。
+
+## 都市計画決定GISデータ（urban_planning スキーマ）のほかのテーブル
+
+令和7年度の都市計画決定GISデータです。mart_urban_planning_areas と同じく、原典がタイルの境界で
+切って配信する区域を、属性が同じものごとに 1 つのポリゴン（都市計画道路は線）に結合しています。
+地方公共団体が GIS データを出していない区域は入っていません。
+
+- mart_use_districts: 用途地域。用途地域の種類、容積率・建蔽率（%、数値）
+- mart_location_optimization_plans: 立地適正化計画の区域（立地適正化計画区域・居住誘導区域・都市機能誘導区域など）
+- mart_fire_prevention_districts: 防火地域・準防火地域
+- mart_district_plans: 地区計画などの区域。計画名・計画区分
+- mart_high_utilization_districts: 高度利用地区。地区名
+- mart_planned_roads: 都市計画道路の線と広場の範囲。原典に路線名は無い
+
+## テーブル: disaster スキーマ（防災情報）
+
+- mart_liquefaction_tendency: 地形区分に基づく液状化の発生傾向（国土交通省都市局）。250m メッシュごとの微地形区分と液状化の発生傾向。
+  ポリゴンはメッシュコードから組み立てています。mesh3_code（先頭 8 桁）で 1km メッシュの統計と結合できます
+- mart_disaster_history: 国土調査（土地履歴調査）の災害履歴。浸水・がけ崩れ・液状化・津波などの記録で、
+  形状は点・線・面が混ざります。発生年月日は分からない部分が 0 の 8 桁の文字列（disaster_date_text）で、
+  年と年月日が分かるものだけ disaster_year・disaster_date に入れています
+- mart_evacuation_sites: 国土地理院の指定緊急避難場所。洪水・地震・津波など災害の種類ごとの対応フラグと経度・緯度。
+  city_code は共通 ID の 2〜6 桁目です
+
+## テーブル: regulation スキーマ
+
+- mart_special_watch_areas: 重要土地等調査法に基づく特別注視区域（内閣府）のポリゴン
+
+これらの範囲はいずれも概ねの位置で、重要事項説明や建築確認申請の根拠には使えません。
 
 ## クレジット
 

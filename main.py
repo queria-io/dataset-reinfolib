@@ -12,7 +12,7 @@ import math
 import os
 import sys
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import date, timedelta
 from itertools import product
@@ -85,18 +85,57 @@ LAND_START_YEAR = 1995
 # 持たない。区切って毎日少しずつ回し、どのビルドも必ず publish まで到達させる。
 LAND_BUDGET_SECONDS = 30 * 60
 
+# -- タイルで配信される API (XKT001 ほか) の共通設定 --
+# TILE_LAYERS を含めていずれも z11 で取得でき、点の XGT001 も z11 で返ることを
+# 確かめてある。z11 の全 10170 タイルを一巡するのにおよそ 20 分かかる
+# (XKT001 の実測で空タイルが 87% で 0.09 秒、区域のあるタイルが 0.29 秒)。
+TILE_Z = 11
+
+# 年度単位でしか更新されないデータなので、取得済みタイルは 30 日空けてから
+# 取り直す。取得日はビルド単位でそろうので、初回のバックフィルのあとは 30 日ごとに
+# 数ビルドを使って回り直し、その間のビルドは空振りする。
+TILE_REFRESH_INTERVAL_DAYS = 30
+
+# 取得の失敗がこの回数続いたら、API 側の障害とみなしてそのレイヤーを打ち切る。
+TILE_MAX_CONSECUTIVE_FAILURES = 3
+
 # -- XKT001: 都市計画決定GISデータ (都市計画区域・区域区分) --
 URBAN_TABLE = "reinfolib._source.urban_planning_areas"
 URBAN_TILE_STATE = "reinfolib._source.urban_planning_tile_state"
-URBAN_TILE_Z = 11
 
-# 年度単位でしか更新されないデータなので、取得済みタイルは 30 日空けてから
-# 取り直す。全 10170 タイルの一巡はおよそ 20 分 (空タイルが 87% で 0.09 秒、
-# 区域のあるタイルが 0.29 秒) で、1 ビルド 15 分の予算だと 2 ビルドで一周する。
-# 取得日はビルド単位でそろうので、初回のバックフィルのあとは 30 日ごとに
-# 2 ビルドを使って回り直し、その間のビルドは空振りする。
-URBAN_REFRESH_INTERVAL_DAYS = 30
+# 1 ビルド 15 分の予算だと 2 ビルドで一周する。
 URBAN_BUDGET_SECONDS = 15 * 60
+
+# -- XKT001 以外のタイル API --
+# (エンドポイント, _source のテーブル名)。properties は API ごとに違うので
+# JSON 文字列のまま持ち、列への展開は stg 層の json_extract に任せる。
+TILE_LAYERS: list[tuple[str, str]] = [
+    ("XKT002", "use_districts"),  # 用途地域
+    ("XKT003", "location_optimization_plans"),  # 立地適正化計画
+    ("XKT014", "fire_prevention_districts"),  # 防火・準防火地域
+    ("XKT023", "district_plans"),  # 地区計画
+    ("XKT024", "high_utilization_districts"),  # 高度利用地区
+    ("XKT030", "planned_roads"),  # 都市計画道路
+    ("XNT001", "special_watch_areas"),  # 重要土地等調査法の特別注視区域
+    ("XGT001", "evacuation_sites"),  # 指定緊急避難場所
+    ("XST001", "disaster_history"),  # 国土調査の災害履歴
+    ("XKT025", "liquefaction_tendency"),  # 地形区分に基づく液状化の発生傾向
+]
+# 10 レイヤーの一巡はおよそ 200 分。1 ビルドに足すのは 20 分までにとどめ、
+# 初回のバックフィルは 10 ビルドほどかけて埋める。
+TILE_LAYERS_BUDGET_MINUTES = 20
+# mart で形をメッシュコードから組み立てるレイヤー。全国で約 600 万行あり、
+# 使わない geometry を _source に持たない
+TILE_LAYERS_WITHOUT_GEOMETRY = {"liquefaction_tendency"}
+TILE_LAYER_SCHEMA = pa.schema(
+    [
+        ("properties", pa.string()),
+        ("geometry", pa.string()),
+        ("_z", pa.int32()),
+        ("_x", pa.int32()),
+        ("_y", pa.int32()),
+    ]
+)
 
 #: XKT001 の properties は仕様で固定されているので、JSON 文字列ではなく列で持つ。
 URBAN_PROPERTIES: list[tuple[str, pa.DataType]] = [
@@ -194,10 +233,10 @@ def main() -> None:
         tiles = _known_land_tiles(conn)
         ingest_land_prices(conn, client, secret, tiles=tiles, years=land_years)
 
-    with _ducklake_connect() as (conn, secret), _urban_planning_session(api_key) as sess:
-        ingest_urban_planning_areas(
-            conn, sess, secret, tiles=_scan_tiles(URBAN_TILE_Z)
-        )
+    with _ducklake_connect() as (conn, secret), _api_session(api_key) as sess:
+        tiles = _scan_tiles(TILE_Z)
+        ingest_urban_planning_areas(conn, sess, secret, tiles=tiles)
+        ingest_tile_layers(conn, sess, secret, tiles=tiles)
 
     dbt = dbtRunner()
     for cmd in (
@@ -789,10 +828,9 @@ def _save_tile_state(
 
 
 @contextmanager
-def _urban_planning_session(api_key: str) -> Generator[requests.Session]:
-    """XKT001 用の HTTP セッション。
+def _api_session(api_key: str) -> Generator[requests.Session]:
+    """reinfolib-client がまだ持たない API (XKT・XGT・XST・XNT) 用の HTTP セッション。
 
-    reinfolib-client はまだ XKT001 を持たないので、ここだけ直接叩く。
     リトライの設定はクライアントに合わせてある。
     """
     session = requests.Session()
@@ -807,17 +845,17 @@ def _urban_planning_session(api_key: str) -> Generator[requests.Session]:
         session.close()
 
 
-def _fetch_urban_features(
-    session: requests.Session, *, z: int, x: int, y: int
+def _fetch_features(
+    session: requests.Session, endpoint: str, *, z: int, x: int, y: int
 ) -> list[dict]:
-    """XKT001 を GeoJSON で取得し features を返す。
+    """タイル 1 枚分を GeoJSON で取得し features を返す。
 
     API キーはヘッダで送る。requests がリダイレクト時に落とすのは Authorization
     などの既知のヘッダだけで、独自ヘッダは別ホストへも再送されてしまうため、
     リダイレクトは追わずに異常として扱う。
     """
     resp = session.get(
-        "https://www.reinfolib.mlit.go.jp/ex-api/external/XKT001",
+        f"https://www.reinfolib.mlit.go.jp/ex-api/external/{endpoint}",
         params={"response_format": "geojson", "z": str(z), "x": str(x), "y": str(y)},
         timeout=60,
         allow_redirects=False,
@@ -826,7 +864,139 @@ def _fetch_urban_features(
         return []
     resp.raise_for_status()
     body = resp.json()
-    return body.get("features", []) if isinstance(body, dict) else []
+    features = body.get("features", []) if isinstance(body, dict) else []
+    # 形状の無い feature は geometry が "{}" になり、stg の ST_GeomFromGeoJSON が
+    # 1 行でも当たると dbt run ごと落ちるので、ここで落とす
+    return [f for f in features if isinstance(f, dict) and f.get("geometry")]
+
+
+def _ingest_tiles(
+    conn: duckdb.DuckDBPyConnection,
+    secret: Secret,
+    *,
+    label: str,
+    table: str,
+    schema: pa.Schema,
+    state_table: str,
+    tiles: list[tuple[int, int]],
+    fetch_rows: Callable[[int, int], list[dict]],
+    deadline: float,
+) -> None:
+    """タイル単位の取得を予算の中で進め、table のタイルごとの行を入れ替える。
+
+    未取得のタイルを先に片付け、そのあとは最終取得日が TILE_REFRESH_INTERVAL_DAYS
+    より古いものを古い順に取り直す。deadline で打ち切り、続きは次のビルドが
+    状態表から引き継ぐ。
+    """
+    state = _load_tile_state(conn, state_table)
+    today = date.today()
+    cutoff = today - timedelta(days=TILE_REFRESH_INTERVAL_DAYS)
+    pending = [t for t in tiles if t not in state]
+    refreshable = sorted(
+        (t for t in tiles if state.get(t) is not None and state[t] <= cutoff),
+        key=lambda t: state[t],
+    )
+    queue = pending + refreshable
+    logger.info(
+        "%s: %d/%d タイル取得済み (未取得=%d, %d日以上前=%d, 残り予算%d分)",
+        label,
+        len(state),
+        len(tiles),
+        len(pending),
+        TILE_REFRESH_INTERVAL_DAYS,
+        len(refreshable),
+        max(0, int(deadline - time.monotonic())) // 60,
+    )
+
+    written = 0
+    fetched = 0
+    failures = 0
+    for done, (x, y) in enumerate(queue):
+        if time.monotonic() >= deadline:
+            logger.info(
+                "%s: 予算に達したので %d タイルで打ち切り (残り %d)",
+                label,
+                done,
+                len(queue) - done,
+            )
+            break
+        # 1 タイルの失敗でビルド全体を落とさない。失敗したタイルは状態に入れずに
+        # 飛ばし、次のビルドで取り直す。打ち切りにすると、取れないタイルが 1 枚
+        # あるだけで毎回その手前で止まり、レイヤーが先へ進まなくなる。続けて
+        # 失敗するときは API 側の障害とみなしてこのレイヤーを打ち切る
+        try:
+            rows = fetch_rows(x, y)
+        except (requests.RequestException, ValueError) as exc:
+            failures += 1
+            logger.warning(
+                "%s: タイル (%d, %d) の取得に失敗 (%d 回連続): %s",
+                label,
+                x,
+                y,
+                failures,
+                exc,
+            )
+            if failures >= TILE_MAX_CONSECUTIVE_FAILURES:
+                logger.warning("%s: 失敗が続くので打ち切り", label)
+                break
+            continue
+        failures = 0
+        _replace_tile_rows(conn, table, schema, x, y, rows)
+        state[(x, y)] = today
+        fetched += 1
+        written += len(rows)
+        if (done + 1) % 200 == 0:
+            _save_tile_state(conn, state_table, state)
+            secret.refresh_if_due()
+            logger.info(
+                "  %s tiles %d/%d, rows %d", label, done + 1, len(queue), written
+            )
+    # 何も取らなかったビルドで状態表を書き直すと、空振りのたびにデータファイルと
+    # スナップショットが増えるだけなので書かない
+    if fetched:
+        _save_tile_state(conn, state_table, state)
+
+    logger.info(
+        "%s: %d rows written, 未処理の残り %d タイル",
+        label,
+        written,
+        len([t for t in tiles if t not in state]),
+    )
+
+
+def _replace_tile_rows(
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    schema: pa.Schema,
+    x: int,
+    y: int,
+    rows: list[dict],
+) -> None:
+    """1 タイル分の行を入れ替える。
+
+    区域が消えたタイルを空のまま残せるよう、行が無くても削除だけは実行する。
+    """
+    batch = pa.Table.from_pylist(rows, schema=schema) if rows else None
+    conn.execute("BEGIN")
+    try:
+        conn.execute(f"DELETE FROM {table} WHERE _x = ? AND _y = ?", [x, y])
+        if batch is not None:
+            conn.register("_batch", batch)
+            conn.execute(f"INSERT INTO {table} SELECT * FROM _batch")
+            conn.unregister("_batch")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def _ensure_table(
+    conn: duckdb.DuckDBPyConnection, table: str, schema: pa.Schema
+) -> None:
+    """列が固定なので、空のタイルしか無いビルドでも表だけは先に作っておく。"""
+    conn.register("_empty", schema.empty_table())
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {table} AS SELECT * FROM _empty")
+    conn.unregister("_empty")
 
 
 def ingest_urban_planning_areas(
@@ -838,71 +1008,27 @@ def ingest_urban_planning_areas(
 ) -> None:
     """XKT001: 都市計画区域・区域区分をタイル単位で取得する。
 
-    地価ポイントと違い年の軸が無く、1 タイル 1 リクエストで済む。未取得の
-    タイルを先に片付け、そのあとは最終取得日が URBAN_REFRESH_INTERVAL_DAYS
-    より古いものを古い順に取り直す。1 回のビルドは URBAN_BUDGET_SECONDS で
-    打ち切り、続きは次のビルドが引き継ぐ。
+    地価ポイントと違い年の軸が無く、1 タイル 1 リクエストで済む。1 回のビルドは
+    URBAN_BUDGET_SECONDS で打ち切る。
 
     区域ポリゴンはタイルの境界で切られて返るため、断片のまま書き込み、
     元の区域に戻すのは mart 層の ST_Union_Agg に任せる。
     """
-    _ensure_urban_table(conn)
-    state = _load_tile_state(conn, URBAN_TILE_STATE)
-    today = date.today()
-    cutoff = today - timedelta(days=URBAN_REFRESH_INTERVAL_DAYS)
-    pending = [t for t in tiles if t not in state]
-    refreshable = sorted(
-        (t for t in tiles if state.get(t) is not None and state[t] <= cutoff),
-        key=lambda t: state[t],
-    )
-    queue = pending + refreshable
-    logger.info(
-        "urban planning: %d/%d タイル取得済み (未取得=%d, %d日以上前=%d, 予算%d分)",
-        len(state),
-        len(tiles),
-        len(pending),
-        URBAN_REFRESH_INTERVAL_DAYS,
-        len(refreshable),
-        URBAN_BUDGET_SECONDS // 60,
-    )
-
-    deadline = time.monotonic() + URBAN_BUDGET_SECONDS
-    written = 0
-    for done, (x, y) in enumerate(queue):
-        if time.monotonic() >= deadline:
-            logger.info(
-                "urban planning: 予算に達したので %d タイルで打ち切り (残り %d)",
-                done,
-                len(queue) - done,
-            )
-            break
-        rows = [
+    _ensure_table(conn, URBAN_TABLE, URBAN_SCHEMA)
+    _ingest_tiles(
+        conn,
+        secret,
+        label="urban planning",
+        table=URBAN_TABLE,
+        schema=URBAN_SCHEMA,
+        state_table=URBAN_TILE_STATE,
+        tiles=tiles,
+        fetch_rows=lambda x, y: [
             _urban_feature_to_row(f, x, y)
-            for f in _fetch_urban_features(session, z=URBAN_TILE_Z, x=x, y=y)
-        ]
-        _write_urban_tile_rows(conn, x, y, rows)
-        state[(x, y)] = today
-        written += len(rows)
-        if (done + 1) % 200 == 0:
-            _save_tile_state(conn, URBAN_TILE_STATE, state)
-            secret.refresh_if_due()
-            logger.info("  tiles %d/%d, rows %d", done + 1, len(queue), written)
-    _save_tile_state(conn, URBAN_TILE_STATE, state)
-
-    logger.info(
-        "urban planning ingest done: %d rows written, 未処理の残り %d タイル",
-        written,
-        len([t for t in tiles if t not in state]),
+            for f in _fetch_features(session, "XKT001", z=TILE_Z, x=x, y=y)
+        ],
+        deadline=time.monotonic() + URBAN_BUDGET_SECONDS,
     )
-
-
-def _ensure_urban_table(conn: duckdb.DuckDBPyConnection) -> None:
-    """列が固定なので、空のタイルしか無いビルドでも表だけは先に作っておく。"""
-    conn.register("_urban_empty", URBAN_SCHEMA.empty_table())
-    conn.execute(
-        f"CREATE TABLE IF NOT EXISTS {URBAN_TABLE} AS SELECT * FROM _urban_empty"
-    )
-    conn.unregister("_urban_empty")
 
 
 def _urban_feature_to_row(f: dict, x: int, y: int) -> dict:
@@ -914,27 +1040,77 @@ def _urban_feature_to_row(f: dict, x: int, y: int) -> dict:
     props = f.get("properties", {})
     row = {name: props.get(name) for name, _ in URBAN_PROPERTIES}
     row["geometry"] = json.dumps(f.get("geometry") or {}, ensure_ascii=False)
-    row["_z"] = URBAN_TILE_Z
+    row["_z"] = TILE_Z
     row["_x"] = x
     row["_y"] = y
     return row
 
 
-def _write_urban_tile_rows(
-    conn: duckdb.DuckDBPyConnection, x: int, y: int, rows: list[dict]
+def ingest_tile_layers(
+    conn: duckdb.DuckDBPyConnection,
+    session: requests.Session,
+    secret: Secret,
+    *,
+    tiles: list[tuple[int, int]],
 ) -> None:
-    """1 タイル分の行を入れ替える。
+    """TILE_LAYERS をタイル単位で取得する。全レイヤーで 1 つの予算を分け合う。
 
-    区域が消えたタイルを空のまま残せるよう、行が無くても削除だけは実行する。
+    並び順のとおりに進めるので、初回のバックフィルでは前のレイヤーが埋まってから
+    次へ移る。予算は環境変数 REINFOLIB_TILE_BUDGET_MINUTES で上書きできる
+    (手元で一気に埋めるとき用)。
     """
-    conn.execute("BEGIN")
-    conn.execute(f"DELETE FROM {URBAN_TABLE} WHERE _x = ? AND _y = ?", [x, y])
-    if rows:
-        conn.register("_batch", pa.Table.from_pylist(rows, schema=URBAN_SCHEMA))
-        conn.execute(f"INSERT INTO {URBAN_TABLE} SELECT * FROM _batch")
-    conn.execute("COMMIT")
-    if rows:
-        conn.unregister("_batch")
+    minutes = float(
+        os.environ.get("REINFOLIB_TILE_BUDGET_MINUTES") or TILE_LAYERS_BUDGET_MINUTES
+    )
+    deadline = time.monotonic() + minutes * 60
+    # 予算切れで後ろのレイヤーまで回らないビルドでも、dbt が読む表はそろえておく
+    for _, name in TILE_LAYERS:
+        _ensure_table(conn, f"reinfolib._source.{name}", TILE_LAYER_SCHEMA)
+    for endpoint, name in TILE_LAYERS:
+        table = f"reinfolib._source.{name}"
+        _ingest_tiles(
+            conn,
+            secret,
+            label=f"{endpoint} {name}",
+            table=table,
+            schema=TILE_LAYER_SCHEMA,
+            state_table=f"{table}_tile_state",
+            tiles=tiles,
+            fetch_rows=lambda x, y, endpoint=endpoint, name=name: [
+                _layer_feature_to_row(
+                    f, x, y, keep_geometry=name not in TILE_LAYERS_WITHOUT_GEOMETRY
+                )
+                for f in _fetch_features(session, endpoint, z=TILE_Z, x=x, y=y)
+            ],
+            deadline=deadline,
+        )
+        if time.monotonic() >= deadline:
+            break
+
+
+def _layer_feature_to_row(
+    f: dict, x: int, y: int, *, keep_geometry: bool = True
+) -> dict:
+    """GeoJSON feature を TILE_LAYER_SCHEMA の行 dict に変換する。
+
+    _id / _index は配信側の検索インデックスの都合で、再構築のたびに変わるので落とす。
+    """
+    props = {
+        k: v
+        for k, v in (f.get("properties") or {}).items()
+        if k not in ("_id", "_index")
+    }
+    return {
+        "properties": json.dumps(props, ensure_ascii=False),
+        "geometry": (
+            json.dumps(f.get("geometry") or {}, ensure_ascii=False)
+            if keep_geometry
+            else None
+        ),
+        "_z": TILE_Z,
+        "_x": x,
+        "_y": y,
+    }
 
 
 def _verify_land_coverage(conn: duckdb.DuckDBPyConnection) -> None:

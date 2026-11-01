@@ -1,0 +1,28 @@
+schema: disaster
+name: mart_disaster_history
+title: 災害履歴
+description: 国土交通省 不動産情報ライブラリが配信する、国土調査（土地履歴調査）の災害履歴。過去の浸水域・堤防決壊箇所・高潮浸水域・がけ崩れ・地すべり・河道閉塞・土石流・液状化・地震による土砂災害・津波の高さと浸水域を、災害の種類と発生年月日、出典の資料名とともに持つ。形状は災害の種類によって点・線・面が混ざる。1行は災害の種類・年月日・資料が同じ記録で、タイルの境界で切られて配信される断片を結合している。土地履歴調査を実施した地域だけの記録で、全国を網羅していない。記録が無い場所は「災害が無かった」ではなく「調査していない」場合を含む。
+published: true
+sources:
+  - path: https://www.reinfolib.mlit.go.jp/
+  - path: https://nlftp.mlit.go.jp/kokjo/inspect/landclassification/download.html
+fields:
+  - name: disaster_type_code
+    title: 災害分類コード
+    description: 11=浸水域等、12=堤防決壊箇所等、13=高潮浸水域等、14=高潮破堤箇所等、21=がけ崩れ等、22=地すべり等、23=河道閉塞箇所等、24=土石流等、33=液状化、34=地震土砂災害、37=津波高、38=津波浸水域
+  - name: disaster_type
+    title: 災害の種類
+  - name: disaster_date_text
+    title: 発生年月日（原典の表記）
+    description: 8 桁の西暦年月日。分からない部分は 0 で埋まる（19810000 は 1981 年で月日不明、00000000 は年代不明）
+  - name: disaster_year
+    title: 発生年
+    description: 年が分からない記録は NULL
+  - name: disaster_date
+    title: 発生年月日
+    description: 年月日がすべて分かる記録だけ日付が入る
+  - name: source_document
+    title: 資料名（発行者）
+  - name: geom
+    title: 形状
+    description: EPSG:6668。点・線・面が混ざる
