@@ -5,7 +5,8 @@
    (key_code の先頭 9 桁。丁目をまとめた単位) で集計し、同じ町の丁目には同じ値を入れる。
    公示・調査の地点は位置で町に入れ、取引は地区名を町の名前に突き合わせる #}
 
-with small_area as (
+-- 公開中の e_stat を HTTPS で読むので、3 か所から使う境界は 1 回だけ読む
+with small_area as materialized (
     select
         key_code,
         prefecture_code,
@@ -15,13 +16,16 @@ with small_area as (
         geometry,
         {{ normalize_town_name("area_name") }} as town_name
     from e_stat.boundary.small_area
+    -- 町丁・字等は 9 桁、その内訳は 11 桁。2 桁 (都道府県コードだけ) の行は名前の無い水面などで、
+    -- 先頭 9 桁が町にならず、別の市区町村の形が 1 つの「町」にまとまってしまう
+    where length(key_code) in (9, 11)
 ),
 
 town as (
-    -- 1 つの町の丁目は名前がそろうので、町の名前は 1 つに決まる
-    select town_code, any_value(city_code) as city_code, min(town_name) as town_name
+    -- 1 つの町の内訳に別の名前が並ぶことがある (「新居町新居栄町」「新居町新居港町」など、
+    -- 4 つに 1 つの町)。名前を 1 つに決めず、どの名前でも町に当てる
+    select distinct town_code, city_code, town_name
     from small_area
-    group by town_code
 ),
 
 -- 地価公示・地価調査: 地点を位置で町丁目に入れる。同じ地点が年ごとに並ぶので、位置だけ先に解く
@@ -76,7 +80,7 @@ district as (
 -- 地区名が町の名前と同じならその町に、無ければ地区名で始まる町すべてに入れる
 -- (「大久保町」の取引を「大久保町大窪」「大久保町西島」などへ)
 district_exact as (
-    select d.city_code, d.district_name, t.town_code
+    select distinct d.city_code, d.district_name, t.town_code
     from district d
     join town t on t.city_code = d.city_code and t.town_name = d.district_name
 ),
@@ -84,7 +88,8 @@ district_exact as (
 district_town as (
     select * from district_exact
     union all
-    select d.city_code, d.district_name, t.town_code
+    -- 1 つの町に地区名で始まる名前が複数あっても、町には 1 回だけ入れる
+    select distinct d.city_code, d.district_name, t.town_code
     from district d
     join town t on t.city_code = d.city_code and starts_with(t.town_name, d.district_name)
     anti join district_exact e on e.city_code = d.city_code and e.district_name = d.district_name

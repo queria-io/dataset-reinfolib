@@ -24,6 +24,8 @@ licenses:
 sources:
   - title: 不動産情報ライブラリ（国土交通省）
     path: https://www.reinfolib.mlit.go.jp/
+  - title: 国勢調査の小地域境界（e-Stat 統計GIS、mart_small_area_land_prices）
+    path: https://www.e-stat.go.jp/gis
 
 contributors:
   - title: 国土交通省
