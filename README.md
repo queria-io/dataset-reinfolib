@@ -67,6 +67,25 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 年ごとに持つためです。収録は地価公示だけなので、mart_land_prices 側は land_price_type = 0
 に絞ります。1地点に評価書が2通あるので、結合は1対2になります。
 
+## テーブル: mart_small_area_land_prices
+
+町丁目ごとの地価の目安。1行が国勢調査の小地域（e_stat の `boundary.small_area`）1つ × 1年です。
+地価公示・地価調査の地点の価格と、土地だけの取引（宅地(土地)）の㎡単価を、町（key_code の先頭9桁。
+丁目をまとめた単位）ごとにまとめ、同じ町の丁目には同じ値を入れます。地点は位置で町に入れ、
+取引は地区名を町の名前に突き合わせます。
+
+主なカラム:
+
+- key_code: 小地域コード（e_stat の境界・国勢調査の表と同じ）
+- town_code: 町コード（key_code の先頭9桁）
+- year: 年
+- land_point_count / land_price_median / land_change_rate_median: 地点数 / 価格の中央値（円/平米） / 対前年変動率の中央値（%）
+- residential_price_median / commercial_price_median: 住宅地 / 商業地の価格の中央値（円/平米）
+- trade_count / trade_unit_price_median: その年までの3年分の土地の取引件数 / 平米単価の中央値
+
+地点も取引も無い町丁目の行はありません。地区名が町の名前と一致しない取引（市区町村の再編で
+コードが変わったところなど）は入りません。件数が少ない町の値は目安にならないので、件数と一緒に見てください。
+
 ## テーブル: mart_urban_planning_areas
 
 都市計画区域・市街化区域・市街化調整区域のポリゴン。1行が市区町村と区域区分の組です。

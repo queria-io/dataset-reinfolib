@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: mart_small_area_land_prices
+    description: 町丁目ごとの地価の目安。地価公示・地価調査の地点の価格と、土地の取引の㎡単価を、国勢調査の小地域ごと・年ごとにまとめる。
+    columns:
+      - name: key_code
+      - name: prefecture_code
+      - name: city_code
+      - name: town_code
+      - name: area_name
+      - name: year
+      - name: land_point_count
+      - name: land_price_median
+      - name: land_change_rate_median
+      - name: residential_point_count
+      - name: residential_price_median
+      - name: commercial_point_count
+      - name: commercial_price_median
+      - name: trade_count
+      - name: trade_unit_price_median

@@ -1,0 +1,59 @@
+schema: main
+name: mart_small_area_land_prices
+title: 町丁目別の地価
+description: |
+  町丁目ごとの地価の目安。1行が国勢調査の小地域（e_stat の boundary.small_area）1つ × 1年。
+  地価公示・地価調査の地点の価格（mart_land_prices）と、土地だけの取引の㎡単価（mart_trade_prices の 宅地(土地)）を
+  町ごとにまとめる。町は key_code の先頭9桁で、丁目をまとめた単位。同じ町の丁目には同じ値が入る。
+  地点は位置で町に入れ、取引は地区名を町の名前に突き合わせる。地区名が町の名前と一致しない取引
+  （市区町村の再編で市区町村コードが変わったところなど）は入らない。
+  取引の値はその年までの3年分をまとめる。件数が少ない町の値は目安にならないので、land_point_count と
+  trade_count を一緒に見る。地点も取引も無い町丁目の行は無い。
+published: true
+sources:
+  - path: https://www.reinfolib.mlit.go.jp/
+  - path: https://www.e-stat.go.jp/gis
+fields:
+  - name: key_code
+    title: 小地域コード
+    description: e_stat の boundary.small_area と census 各表の key_code / area と同じ
+    semantic: { role: entity, name: small_area }
+  - name: prefecture_code
+    title: 都道府県コード
+    semantic: { role: entity, name: prefecture }
+  - name: city_code
+    title: 市区町村コード
+    semantic: { role: entity, name: city }
+  - name: town_code
+    title: 町コード
+    description: key_code の先頭9桁。値はこの単位でまとめている
+  - name: area_name
+    title: 町丁目名
+  - name: year
+    title: 年
+    description: 地価公示・地価調査は価格時点年、取引は取引年
+  - name: land_point_count
+    title: 地点数
+    description: 町の中にある地価公示・地価調査の地点の数
+  - name: land_price_median
+    title: 地点価格の中央値
+    description: 円/㎡。用途（住宅地・商業地など）を混ぜた中央値
+  - name: land_change_rate_median
+    title: 対前年変動率の中央値
+    description: '%'
+  - name: residential_point_count
+    title: 住宅地の地点数
+  - name: residential_price_median
+    title: 住宅地の価格の中央値
+    description: 円/㎡
+  - name: commercial_point_count
+    title: 商業地の地点数
+  - name: commercial_price_median
+    title: 商業地の価格の中央値
+    description: 円/㎡
+  - name: trade_count
+    title: 土地の取引件数
+    description: その年までの3年分。宅地(土地) の取引で㎡単価があるものだけ
+  - name: trade_unit_price_median
+    title: 土地の取引の㎡単価の中央値
+    description: 円/㎡。その年までの3年分

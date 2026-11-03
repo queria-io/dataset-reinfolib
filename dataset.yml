@@ -59,6 +59,11 @@ ai_context:
     突き合わせる。標準地番号が一意なのは都道府県の中だけで、mart_land_prices は同じ地点を
     年ごとに持つ。収録は地価公示だけなので、mart_land_prices 側は land_price_type = 0 に絞る。
     1地点に評価書が2通あるので結合は1対2になり、地点あたりの集計は先に評価書側を畳む。
+    mart_small_area_land_prices は町丁目ごとの地価の目安で、1行が小地域（e_stat の key_code）×年。
+    地点の価格と土地の取引の㎡単価の中央値を町（key_code の先頭9桁）ごとにまとめ、同じ町の丁目に
+    同じ値を入れる。地図で塗る・商圏に入る町丁目の相場を見るときはこちらを使う。住宅地と商業地は
+    桁が違うので residential_price_median / commercial_price_median を分けて見る。取引の値は
+    その年までの3年分。件数（land_point_count・trade_count）が少ない町は目安にしない。
     mart_urban_planning_areas は都市計画区域・市街化区域・市街化調整区域のポリゴンで、
     1行が市区町村と区域区分の組。ST_Contains で地点がどの区域に入るかを判定できる。
     地点の列（geom）を持つのは mart_land_prices と mart_appraisal_reports で、空間結合の
