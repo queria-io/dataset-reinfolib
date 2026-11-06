@@ -1,7 +1,12 @@
 schema: main
 name: mart_appraisal_reports
 title: 鑑定評価書情報
-description: 国土交通省 不動産情報ライブラリの鑑定評価書情報。地価公示の標準地ごとに不動産鑑定士が作成した鑑定評価書の内容を1通1行で収録する。評価額のほか、取引事例比較法・収益還元法・原価法・開発法の適用結果と算定内訳、比準に用いた取引事例5件の価格、標準地の形状・接面道路・法令規制を持つ。1つの標準地につき2通の鑑定評価書があり、評価額は評価書ごとに異なる。
+description: |-
+  地価公示の標準地について不動産鑑定士が作成した鑑定評価書の内容を、1 通 1 行で持つテーブルです。2022 年からで、評価額と各鑑定評価手法の結果、比準に用いた取引事例 5 件の価格を持ちます。
+
+  - 1 つの標準地に評価書が 2 通あり、評価額は評価書ごとに違います。公表された公示価格は mart_land_prices の current_price を使ってください
+  - mart_land_prices とは year・prefecture_code・standard_lot_number で結合します
+  - 適用していない鑑定評価手法の価格は 0 です
 published: true
 sources:
   - path: https://www.reinfolib.mlit.go.jp/

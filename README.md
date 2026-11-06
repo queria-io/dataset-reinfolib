@@ -1,9 +1,56 @@
-## データ出典
+# 不動産情報ライブラリ
 
-[国土交通省 不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/)の API から取得した、
-全国の不動産取引価格・地価公示・鑑定評価書、都市計画決定GISデータ、防災情報、重要土地等調査法の特別注視区域です。
+国土交通省の[不動産情報ライブラリ](https://www.reinfolib.mlit.go.jp/)の API から取得した、全国の不動産取引価格・地価公示・地価調査・鑑定評価書、都市計画決定GISデータ、防災情報、重要土地等調査法の特別注視区域を、SQL で検索・集計できるテーブルにしたデータセットです。地点と区域は座標と形状を持つので、地図に重ねたり空間結合したりできます。
 
-## テーブル: mart_trade_prices
+## 出典と利用条件
+
+- 国土交通省「不動産情報ライブラリ」の API を加工して作成しています
+- [政府標準利用規約 第2.0版](https://www.reinfolib.mlit.go.jp/help/termsOfUse/)に従います
+- このサービスは、国土交通省の不動産情報ライブラリのAPI機能を使用していますが、提供情報の最新性、正確性、完全性等が保証されたものではありません。
+
+## テーブル
+
+| テーブル | 内容 | 行数 |
+| --- | --- | ---: |
+| `main.mart_trade_prices` | 不動産の取引価格・成約価格（2005 年から） | 5,850,659 |
+| `main.mart_land_prices` | 地価公示・地価調査の地点別の価格（1995 年から） | 1,432,153 |
+| `main.mart_appraisal_reports` | 地価公示の鑑定評価書（2022 年から） | 258,216 |
+| `urban_planning.mart_urban_planning_areas` | 都市計画区域・市街化区域・市街化調整区域 | 2,683 |
+| `urban_planning.mart_use_districts` | 用途地域 | 14,139 |
+| `urban_planning.mart_location_optimization_plans` | 立地適正化計画の区域 | 1,729 |
+| `urban_planning.mart_fire_prevention_districts` | 防火地域・準防火地域 | 926 |
+| `urban_planning.mart_district_plans` | 地区計画などの区域 | 6,267 |
+| `urban_planning.mart_high_utilization_districts` | 高度利用地区 | 562 |
+| `urban_planning.mart_planned_roads` | 都市計画道路と広場 | 4,026 |
+| `disaster.mart_liquefaction_tendency` | 液状化の発生傾向（250m メッシュ） | 5,954,133 |
+| `disaster.mart_disaster_history` | 土地履歴調査の災害履歴 | 1,348 |
+| `disaster.mart_evacuation_sites` | 指定緊急避難場所 | 115,902 |
+| `regulation.mart_special_watch_areas` | 重要土地等調査法の特別注視区域 | 143 |
+
+## 使い方
+
+日野市の地価公示（住宅地）の中央値を年ごとに出す:
+
+```sql
+SELECT year, count(*) AS points, median(current_price) AS median_yen_per_m2
+FROM reinfolib.main.mart_land_prices
+WHERE land_price_type = 0          -- 地価公示
+  AND city_code = '13212'
+  AND use_category = '住宅地'
+  AND year >= 2021
+GROUP BY ALL
+ORDER BY year;
+```
+
+## 注意
+
+- 都市計画・防災・規制の区域の範囲は概ねの位置です。重要事項説明や建築確認申請の根拠には使えません
+- 都市計画決定GISデータは、地方公共団体が GIS データを出していない区域を含みません。都市計画決定があっても行が無い区域があります
+- 地価の `current_price` は円/㎡です。`front_road_width` の単位は `mart_land_prices` が 0.1m、`mart_appraisal_reports` が m で、テーブルによって違います
+
+## main.mart_trade_prices
+
+全国の不動産の取引価格と成約価格です。1 行が 1 件の取引で、2005 年から収録しています。
 
 主なカラム:
 
@@ -21,7 +68,7 @@
 - year / quarter: 取得年 / 四半期
 - price_category: 価格区分（取引価格 / 成約価格）
 
-## テーブル: mart_land_prices
+## main.mart_land_prices
 
 地価公示・都道府県地価調査の標準地。1行が1地点1年で、1995年から収録しています。
 
@@ -29,7 +76,7 @@
 
 - land_price_type_name: 地価情報区分（地価公示 / 地価調査）
 - year: 価格時点年
-- prefecture_name / municipality_name / location: 都道府県 / 市区町村 / 所在地
+- prefecture_name / city_code / municipality_name / location: 都道府県 / 市区町村コード（5 桁） / 区町村名 / 所在地。市の地点は municipality_name が空なので、市区町村で絞るときは city_code を使ってください
 - current_price / last_year_price / change_rate: 当年価格 / 前年価格 / 対前年変動率
 - cadastral_area: 地積（平米）
 - use_category / zoning_use_category: 用途区分 / 用途地域
@@ -37,7 +84,7 @@
 - front_road_width: 前面道路の幅員（0.1m 単位。60 は 6.0m。0 と 9999 は幅員を表さない）
 - geom: 地点（EPSG:6668）
 
-## テーブル: mart_appraisal_reports
+## main.mart_appraisal_reports
 
 地価公示の標準地について、不動産鑑定士が作成した鑑定評価書の内容。1行が1通で、
 2022年から収録しています。mart_land_prices が「いくらか」を持つのに対し、
@@ -67,7 +114,7 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 年ごとに持つためです。収録は地価公示だけなので、mart_land_prices 側は land_price_type = 0
 に絞ります。1地点に評価書が2通あるので、結合は1対2になります。
 
-## テーブル: mart_urban_planning_areas
+## urban_planning.mart_urban_planning_areas
 
 都市計画区域・市街化区域・市街化調整区域のポリゴン。1行が市区町村と区域区分の組です。
 `ST_Contains` で地点がどの区域に入るかを判定でき、地点を持つ mart_land_prices と
@@ -86,7 +133,7 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 1つのポリゴンに結合して収録しています。設定年月日と告示番号は原典が和暦・西暦・略記の
 混在した文字列で公開しているため、そのままの形で入っています。
 
-## 都市計画決定GISデータ（urban_planning スキーマ）のほかのテーブル
+## urban_planning スキーマのほかのテーブル
 
 令和7年度の都市計画決定GISデータです。mart_urban_planning_areas と同じく、原典がタイルの境界で
 切って配信する区域を、属性が同じものごとに 1 つのポリゴン（都市計画道路は線）に結合しています。
@@ -98,8 +145,9 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 - mart_district_plans: 地区計画などの区域。計画名・計画区分
 - mart_high_utilization_districts: 高度利用地区。地区名
 - mart_planned_roads: 都市計画道路の線と広場の範囲。原典に路線名は無い
+設定年月日と告示番号は、原典が和暦・西暦・略記の混在した文字列で公開しているため、そのままの形で入っています。
 
-## テーブル: disaster スキーマ（防災情報）
+## disaster スキーマ
 
 - mart_liquefaction_tendency: 地形区分に基づく液状化の発生傾向（国土交通省都市局）。250m メッシュごとの微地形区分と液状化の発生傾向。
   ポリゴンはメッシュコードから組み立てています。mesh3_code（先頭 8 桁）で 1km メッシュの統計と結合できます
@@ -109,16 +157,19 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 - mart_evacuation_sites: 国土地理院の指定緊急避難場所。洪水・地震・津波など災害の種類ごとの対応フラグと経度・緯度。
   city_code は共通 ID の 2〜6 桁目です
 
-## テーブル: regulation スキーマ
+液状化の発生傾向は、地形が示す一般的な地盤の性質から見た相対的な傾向で、特定の地震や震度を想定した危険度ではありません。メッシュの中で面積の大きい地形で分類しているので、埋立地や盛土などの人工改変地の細かい位置は反映されていません。傾向が弱いメッシュでも、その中の人工改変地では液状化が起きることがあります。水部（河道・湖沼）は原則として評価していません。
 
-- mart_special_watch_areas: 重要土地等調査法に基づく特別注視区域（内閣府）のポリゴン
+災害履歴は土地履歴調査を実施した地域だけの記録で、全国を網羅していません。記録が無い場所には、調査していない場所が含まれます。
 
-これらの範囲はいずれも概ねの位置で、重要事項説明や建築確認申請の根拠には使えません。
+指定緊急避難場所は、対応する災害が避難場所ごとに違うので、災害の種類で絞ってから使ってください。配信データは原典の更新をいつも反映しているわけではないので、最新の状況は市町村に確認してください。
 
-## クレジット
+## regulation スキーマ
 
-このサービスは、国土交通省の不動産情報ライブラリのAPI機能を使用していますが、提供情報の最新性、正確性、完全性等が保証されたものではありません。
+- mart_special_watch_areas: 重要土地等調査法に基づく特別注視区域（内閣府）のポリゴン。区域内の一定面積以上の土地・建物の売買などの契約は、売主と買主の双方が内閣総理大臣に事前に届け出る必要があります。1 行が 1 つの区域名です。正式な範囲は内閣府の公示で確認してください
 
-## ライセンス
+## 更新
 
-[政府標準利用規約 第2.0版](https://www.reinfolib.mlit.go.jp/help/termsOfUse/)
+```bash
+uv sync
+bash scripts/build.sh
+```

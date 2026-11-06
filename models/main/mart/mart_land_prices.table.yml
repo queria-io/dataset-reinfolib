@@ -1,7 +1,11 @@
 schema: main
 name: mart_land_prices
 title: 地価公示・地価調査ポイント
-description: 国土交通省 不動産情報ライブラリの地価公示・都道府県地価調査に基づく、全国の地点別データ。所在地・緯度経度、価格と前年比、地積、用途区分、最寄駅・接面道路、建蔽率・容積率などを収録する。
+description: |-
+  地価公示・都道府県地価調査の地点ごとの価格を、1 地点 1 年で 1 行に持つテーブルです。1995 年からで、所在地・座標・価格と前年比・地積・用途・最寄駅・法令上の規制を持ちます。
+
+  - land_price_type で地価公示（0）と地価調査（1）を区別します
+  - 市の地点は municipality_name が空です。市区町村で絞るときは city_code を使ってください
 published: true
 sources:
   - path: https://www.reinfolib.mlit.go.jp/
@@ -23,9 +27,11 @@ fields:
   - name: prefecture_name
     title: 都道府県名
   - name: city_code
+    description: 市区町村コード 5 桁（チェックディジット無し）
     title: 市区町村コード
     semantic: { role: entity, name: city }
   - name: municipality_name
+    description: 区町村名。市（政令指定都市の区を除く）の地点は空
     title: 市区町村名
   - name: place_name
     title: 地名

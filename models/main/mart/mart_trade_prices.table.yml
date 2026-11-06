@@ -1,7 +1,8 @@
 schema: main
 name: mart_trade_prices
 title: 不動産取引価格情報
-description: 国土交通省 不動産情報ライブラリに基づく、全国の不動産取引価格・成約価格情報。物件種別、所在地（都道府県・市区町村・地区）、取引価格、面積、単価、建築年、構造、用途、取引時期などを収録する。
+description: |-
+  全国の不動産の取引価格と成約価格を、1 件 1 行で持つテーブルです。物件の種類・所在地・価格・面積・単価・建築年・構造・都市計画・取引時期を持ちます。
 published: true
 sources:
   - path: https://www.reinfolib.mlit.go.jp/
