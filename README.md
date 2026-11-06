@@ -76,7 +76,7 @@ ORDER BY year;
 
 - land_price_type_name: 地価情報区分（地価公示 / 地価調査）
 - year: 価格時点年
-- prefecture_name / city_code / municipality_name / location: 都道府県 / 市区町村コード（5 桁） / 区町村名 / 所在地。市の地点は municipality_name が空なので、市区町村で絞るときは city_code を使ってください
+- prefecture_name / city_code / municipality_name / location: 都道府県 / 市区町村コード（5 桁） / 市区町村名（政令指定都市の区は「横浜市南区」の形） / 所在地
 - current_price / last_year_price / change_rate: 当年価格 / 前年価格 / 対前年変動率
 - cadastral_area: 地積（平米）
 - use_category / zoning_use_category: 用途区分 / 用途地域

@@ -14,7 +14,17 @@ select
     json_extract_string(properties, '$.prefecture_code') as prefecture_code,
     json_extract_string(properties, '$.prefecture_name_ja') as prefecture_name,
     json_extract_string(properties, '$.city_code') as city_code,
-    json_extract_string(properties, '$.ward_town_village_name_ja') as municipality_name,
+    -- 市は city_county_name_ja、区町村は ward_town_village_name_ja に入る。
+    -- 政令指定都市の区は「市＋区」、郡の町村は郡名を除いた町村名にする。
+    nullif(
+        case
+            when json_extract_string(properties, '$.city_county_name_ja') like '%郡'
+                then coalesce(json_extract_string(properties, '$.ward_town_village_name_ja'), '')
+            else coalesce(json_extract_string(properties, '$.city_county_name_ja'), '')
+                || coalesce(json_extract_string(properties, '$.ward_town_village_name_ja'), '')
+        end,
+        ''
+    ) as municipality_name,
     json_extract_string(properties, '$.place_name_ja') as place_name,
     json_extract_string(properties, '$.location') as location,
     try_cast(regexp_replace(json_extract_string(properties, '$.u_current_years_price_ja'), '[^0-9]', '', 'g') as bigint) as current_price,

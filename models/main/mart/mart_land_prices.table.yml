@@ -5,7 +5,6 @@ description: |-
   地価公示・都道府県地価調査の地点ごとの価格を、1 地点 1 年で 1 行に持つテーブルです。1995 年からで、所在地・座標・価格と前年比・地積・用途・最寄駅・法令上の規制を持ちます。
 
   - land_price_type で地価公示（0）と地価調査（1）を区別します
-  - 市の地点は municipality_name が空です。市区町村で絞るときは city_code を使ってください
 published: true
 sources:
   - path: https://www.reinfolib.mlit.go.jp/
@@ -31,7 +30,7 @@ fields:
     title: 市区町村コード
     semantic: { role: entity, name: city }
   - name: municipality_name
-    description: 区町村名。市（政令指定都市の区を除く）の地点は空
+    description: 市区町村名。政令指定都市の区は「横浜市南区」の形
     title: 市区町村名
   - name: place_name
     title: 地名
