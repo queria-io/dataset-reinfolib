@@ -20,7 +20,7 @@ language: ja
 themes: [housing_land]
 
 licenses:
-  - JP-GOV-STD-2.0
+  - JP-PDL-1.0
 
 sources:
   - title: 不動産情報ライブラリ（国土交通省）
