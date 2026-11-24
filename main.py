@@ -167,6 +167,34 @@ URBAN_SCHEMA = pa.schema(
 )
 
 
+#: 公開中のデータファイルを読むトークン (shared/scripts/fdl_read.py) を張り直す間隔。
+#: GitHub Actions のトークンは 1 時間で切れ、DuckDB は 401 を受けても取り直さない。
+#: fdl_read は残りが 45 分を切ったトークンを取り直すので、取り込みのループの中で
+#: この間隔ごとに張り直せば、1 つの接続で 1 時間を超えて読み続けても切れない
+READ_TOKEN_REFRESH_SECONDS = 10 * 60
+_read_token_set_at = 0.0
+
+
+def _sql_str(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _set_read_token(conn: duckdb.DuckDBPyConnection) -> None:
+    global _read_token_set_at
+    for statement in fdl_read.statements():
+        conn.execute(statement)
+    _read_token_set_at = time.monotonic()
+
+
+def _refresh_read_token(conn: duckdb.DuckDBPyConnection) -> None:
+    """長い取り込みの途中で、読み取りのトークンを期限が切れる前に差し替える。
+
+    トランザクションの外で呼ぶ。READ_TOKEN_REFRESH_SECONDS 経つまでは何もしない。
+    """
+    if time.monotonic() - _read_token_set_at >= READ_TOKEN_REFRESH_SECONDS:
+        _set_read_token(conn)
+
+
 @contextmanager
 def _ducklake_connect() -> Generator[duckdb.DuckDBPyConnection]:
     """fdl clone の作業場の DuckLake をアタッチした新規 DuckDB セッションを開く。
@@ -193,11 +221,10 @@ def _ducklake_connect() -> Generator[duckdb.DuckDBPyConnection]:
         conn.execute("INSTALL aws; LOAD aws;")
         # 公開中のデータファイルをリポジトリのトークン付きで読む。main にまだ入って
         # いない apply のバージョンのファイルは、トークンが無いと 404 になる
-        for statement in fdl_read.statements():
-            conn.execute(statement)
+        _set_read_token(conn)
         conn.execute(
-            f"ATTACH 'ducklake:{catalog_path}' AS reinfolib "
-            f"(DATA_PATH '{data_url}', OVERRIDE_DATA_PATH true, "
+            f"ATTACH {_sql_str('ducklake:' + catalog_path)} AS reinfolib "
+            f"(DATA_PATH {_sql_str(data_url)}, OVERRIDE_DATA_PATH true, "
             f"DATA_INLINING_ROW_LIMIT 0, META_TYPE 'sqlite', "
             f"META_JOURNAL_MODE 'WAL', BUSY_TIMEOUT 5000)"
         )
@@ -277,6 +304,7 @@ def ingest_trade_prices(
     for area, (year, quarter) in product(areas, quarters):
         if (area, year, quarter) in completed and (year, quarter) != current:
             continue
+        _refresh_read_token(conn)
 
         rows = client.get_real_estate_prices(
             year=year,
@@ -367,6 +395,7 @@ def ingest_appraisal_reports(
     today = date.today()
     fetched = 0
     for done, (year, area, division) in enumerate(combinations):
+        _refresh_read_token(conn)
         rows = client.get_appraisal_reports(year=year, area=area, division=division)
         state[(year, area, division)] = today
         if (done + 1) % 100 == 0:
@@ -565,6 +594,7 @@ def discover_land_price_tiles(
     )
     batch: list[tuple[int, int]] = []
     for i in range(scanned, len(scan)):
+        _refresh_read_token(conn)
         x, y = scan[i]
         if _fetch_land_features(client, z=LAND_TILE_Z, x=x, y=y, year=year):
             batch.append((x, y))
@@ -650,8 +680,8 @@ def ingest_land_prices(
     - 取得済みタイル: 最新年のみ再取得 → 毎年の地価公示(3月)・地価調査(9月)の
       新規公表を取り込む。再取得が古いタイルから順に回す
 
-    1 回のビルドは LAND_BUDGET_SECONDS で打ち切る。全タイルを一巡すると一時
-    認証情報の寿命を大きく超えるので、続きは次のビルドが引き継ぐ。どこまで
+    1 回のビルドは LAND_BUDGET_SECONDS で打ち切る。全タイルを一巡すると Apply の
+    打ち切り (180 分) に収まらないので、続きは次のビルドが引き継ぐ。どこまで
     進んだかは land_tile_state が持つ。
     """
     if not tiles:
@@ -686,6 +716,7 @@ def ingest_land_prices(
                 len(queue) - done,
             )
             break
+        _refresh_read_token(conn)
         tile_years = [latest] if (x, y) in state else years
         rows: list[dict] = []
         for year in tile_years:
@@ -913,6 +944,7 @@ def _ingest_tiles(
                 len(queue) - done,
             )
             break
+        _refresh_read_token(conn)
         # 1 タイルの失敗でビルド全体を落とさない。失敗したタイルは状態に入れずに
         # 飛ばし、次のビルドで取り直す。打ち切りにすると、取れないタイルが 1 枚
         # あるだけで毎回その手前で止まり、レイヤーが先へ進まなくなる。続けて
