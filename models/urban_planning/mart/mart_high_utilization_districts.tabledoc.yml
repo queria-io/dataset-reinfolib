@@ -1,38 +1,36 @@
-schema: urban_planning
-name: mart_location_optimization_plans
-title: 立地適正化計画
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
+title: 高度利用地区
 description: |-
-  立地適正化計画の区域（立地適正化計画区域・居住誘導区域・都市機能誘導区域など）のポリゴンを、区域の種類ごとに持つテーブルです。令和7年度の都市計画決定GISデータです。
+  高度利用地区のポリゴンを、1 つの地区を 1 行として地区名とともに持つテーブルです。令和7年度の都市計画決定GISデータです。
 
   - 範囲は概ねの位置で、重要事項説明や建築確認申請の根拠には使えません
   - 地方公共団体が GIS データを出していない区域は含みません
   - 設定年月日と告示番号は原典の文字列のままです（和暦・西暦・略記が混在）
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-fields:
+  - reinfolib
+columns:
   - name: prefecture_code
     title: 都道府県コード
-    semantic: { role: entity, name: prefecture }
+    entity: prefecture
   - name: prefecture_name
     title: 都道府県名
   - name: city_code
     title: 市区町村コード
-    semantic: { role: entity, name: city }
+    entity: city
   - name: city_name
     title: 市区町村名
+  - name: district_name
+    title: 地区名
+    description: 原典で空の地区がある
+  - name: district_type
+    title: 地区区分名
   - name: kubun_id
-    title: 区域コード
-    description: 0=立地適正化計画区域、31=居住誘導区域、32=都市機能誘導区域
-  - name: zone_name
-    title: 区域名
-  - name: area_classification
-    title: 区域区分
+    title: 区分コード
+  - name: decision_classification
+    title: 設定区分
   - name: decision_date
     title: 設定年月日
     description: 最終告示日。原典が和暦・西暦・略記の混在した文字列で公開しているため、そのまま収録している
-  - name: decision_classification
-    title: 設定区分
   - name: decision_maker
     title: 設定者名
   - name: notice_number

@@ -1,8 +1,7 @@
-schema: main
-name: raw_land_prices
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 description: 不動産情報ライブラリ XPT002 地価公示・地価調査ポイントデータ
-published: false
-fields:
+hidden: true
+columns:
   - name: properties
     description: 地点の属性。XPT002 の GeoJSON properties を JSON 文字列で保持し、stg で json_extract により構造化する
   - name: longitude

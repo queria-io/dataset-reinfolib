@@ -2,7 +2,6 @@ version: 2
 
 models:
   - name: mart_evacuation_sites
-    description: 国土地理院の指定緊急避難場所の位置。
     columns:
       - name: common_id
       - name: prefecture_code

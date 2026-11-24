@@ -1,26 +1,24 @@
-schema: disaster
-name: mart_evacuation_sites
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 title: 指定緊急避難場所
 description: |-
   国土地理院の指定緊急避難場所の位置を、対応する災害の種類（洪水・土砂災害・高潮・地震・津波・大規模な火事・内水氾濫・火山現象）とともに持つテーブルです。
 
   - 対応する災害は避難場所ごとに違うので、災害の種類で絞ってから使ってください
   - 最新の状況は市町村に確認してください
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-  - path: https://www.gsi.go.jp/bousaichiri/hinanbasho.html
-fields:
+  - reinfolib
+  - hinanbasho
+columns:
   - name: common_id
     title: 共通ID
     description: 国土地理院が付けた ID。「E + 市区町村コード 5 桁 + 連番」
   - name: prefecture_code
     title: 都道府県コード
-    semantic: { role: entity, name: prefecture }
+    entity: prefecture
   - name: city_code
     title: 市区町村コード
     description: 共通 ID の 2〜6 桁目。政令指定都市は区ではなく市のコード（神戸市は 28100）
-    semantic: { role: entity, name: city }
+    entity: city
   - name: prefecture_and_city
     title: 都道府県名及び市町村名
   - name: facility_name

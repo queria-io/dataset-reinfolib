@@ -1,16 +1,14 @@
-schema: disaster
-name: mart_disaster_history
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 title: 災害履歴
 description: |-
   国土調査（土地履歴調査）の災害履歴を、災害の種類・発生年月日・出典の資料とともに持つテーブルです。浸水・がけ崩れ・地すべり・液状化・津波などの記録で、形状は点・線・面が混ざります。
 
   - 土地履歴調査を実施した地域だけの記録で、全国を網羅していません
   - 記録が無い場所には、調査していない場所が含まれます
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-  - path: https://nlftp.mlit.go.jp/kokjo/inspect/landclassification/download.html
-fields:
+  - reinfolib
+  - download
+columns:
   - name: disaster_type_code
     title: 災害分類コード
     description: 11=浸水域等、12=堤防決壊箇所等、13=高潮浸水域等、14=高潮破堤箇所等、21=がけ崩れ等、22=地すべり等、23=河道閉塞箇所等、24=土石流等、33=液状化、34=地震土砂災害、37=津波高、38=津波浸水域

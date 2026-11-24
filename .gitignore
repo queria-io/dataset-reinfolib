@@ -11,10 +11,13 @@ logs/
 .user.yml
 package-lock.yml
 
-# DuckLake
-.queria/
+# fdl clone の作業カタログ
+.fdl/
 
 # Environment
 .env
 
 dist/
+
+# 共通のスクリプト (git clone https://github.com/queria-io/dataset-shared.git shared)
+shared/

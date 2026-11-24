@@ -1,7 +1,9 @@
 """不動産情報ライブラリ API 取得 + dbt build パイプライン。
 
-queria の DuckLake カタログ(QUERIA_* 環境変数で注入)へ API 取得データを書き込み、
-dbt で変換する。R2 への公開は queria sync の push が担う。
+fdl clone の作業場の DuckLake カタログ (FDL_WORKING) の ``_source`` スキーマに
+API 取得データを書き込み、dbt で変換する。公開は fdl commit / fdl push が担う
+(scripts/build.sh)。取得の状態 (``*_state`` などのテーブル) も ``_source`` に置き、
+前回のバージョンから引き継いで続きから取得する。
 """
 
 from __future__ import annotations
@@ -16,15 +18,18 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import date, timedelta
 from itertools import product
+from pathlib import Path
 
 import duckdb
 import pyarrow as pa
 import requests
 from dbt.cli.main import dbtRunner
-from queria import Secret
 from reinfolib import ReinfolibClient
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+sys.path.append(str(Path(__file__).parent / "shared" / "scripts"))
+import fdl_read  # noqa: E402  (shared/scripts/fdl_read.py)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -81,8 +86,8 @@ LAND_TILE_Z = 13
 LAND_START_YEAR = 1995
 
 # 1 回のビルドで地価タイルの取得に使う時間の上限。全 4685 タイルを一巡すると
-# 5 時間かかる (実測 6分45秒/100タイル) 一方、一時認証情報は最長 1 時間しか
-# 持たない。区切って毎日少しずつ回し、どのビルドも必ず publish まで到達させる。
+# 5 時間かかり (実測 6分45秒/100タイル)、Apply の打ち切り (180 分) に収まらない。
+# 区切って毎日少しずつ回し、どのビルドも必ず公開まで到達させる。
 LAND_BUDGET_SECONDS = 30 * 60
 
 # -- タイルで配信される API (XKT001 ほか) の共通設定 --
@@ -163,18 +168,15 @@ URBAN_SCHEMA = pa.schema(
 
 
 @contextmanager
-def _ducklake_connect() -> Generator[tuple[duckdb.DuckDBPyConnection, Secret]]:
-    """Open a fresh DuckDB session with the queria-managed DuckLake attached.
+def _ducklake_connect() -> Generator[duckdb.DuckDBPyConnection]:
+    """fdl clone の作業場の DuckLake をアタッチした新規 DuckDB セッションを開く。
 
-    Uses the ``QUERIA_*`` environment variables injected by ``queria run``: the local
-    SQLite live catalog (``QUERIA_CATALOG_PATH``) and the data location
-    (``QUERIA_DATA_URL``, R2 for S3 targets). The catalog is created on first
-    attach when it does not exist yet.
+    shared/scripts/build-fdl.sh が渡す環境変数 (作業場のカタログ ``FDL_WORKING`` と
+    新しいデータファイルの置き場 ``FDL_DATA_PATH``) を使う。
     """
-    catalog_path = os.environ["QUERIA_CATALOG_PATH"]
-    data_url = os.environ["QUERIA_DATA_URL"]
-    is_s3 = data_url.startswith("s3://")
-    # ビルドが公開ストレージを読むときの名乗り。queria run が queria-build として
+    catalog_path = os.environ["FDL_WORKING"]
+    data_url = os.environ["FDL_DATA_PATH"]
+    # ビルドが公開ストレージを読むときの名乗り。build-fdl.sh が queria-build として
     # 渡す。profiles.yml の config_options と同じ値を、こちらのセッションにも通す。
     # 取り込みは dbt ではなくこの接続で行い、増分取得が公開済みの parquet を読むので、
     # ここが抜けると読み取りの大半が匿名のまま出ていき、data.queria.io の利用統計に
@@ -186,19 +188,20 @@ def _ducklake_connect() -> Generator[tuple[duckdb.DuckDBPyConnection, Secret]]:
     try:
         conn.execute("INSTALL ducklake; LOAD ducklake;")
         conn.execute("INSTALL sqlite; LOAD sqlite;")
-        if is_s3:
-            conn.execute("INSTALL httpfs; LOAD httpfs;")
-            # credential_chain はこの拡張にある
-            conn.execute("INSTALL aws; LOAD aws;")
-        secret = Secret(conn)
-        secret.install()
+        conn.execute("INSTALL httpfs; LOAD httpfs;")
+        # 永続 secret の credential_chain はこの拡張にある (FDL_DIRECT=1 のとき)
+        conn.execute("INSTALL aws; LOAD aws;")
+        # 公開中のデータファイルをリポジトリのトークン付きで読む。main にまだ入って
+        # いない apply のバージョンのファイルは、トークンが無いと 404 になる
+        for statement in fdl_read.statements():
+            conn.execute(statement)
         conn.execute(
             f"ATTACH 'ducklake:{catalog_path}' AS reinfolib "
             f"(DATA_PATH '{data_url}', OVERRIDE_DATA_PATH true, "
             f"DATA_INLINING_ROW_LIMIT 0, META_TYPE 'sqlite', "
             f"META_JOURNAL_MODE 'WAL', BUSY_TIMEOUT 5000)"
         )
-        yield conn, secret
+        yield conn
     finally:
         conn.close()
 
@@ -211,32 +214,32 @@ def main() -> None:
     all_quarters = _generate_quarters(START)
     logger.info("start: %d areas × %d quarters", len(areas), len(all_quarters))
 
-    with _ducklake_connect() as (conn, secret), ReinfolibClient(api_key) as client:
+    with _ducklake_connect() as conn, ReinfolibClient(api_key) as client:
         conn.execute("CREATE SCHEMA IF NOT EXISTS reinfolib._source")
-        ingest_trade_prices(conn, client, secret, areas=areas, quarters=all_quarters)
+        ingest_trade_prices(conn, client, areas=areas, quarters=all_quarters)
 
         appraisal_latest = _latest_appraisal_year(client)
         appraisal_years = list(
             range(appraisal_latest - APPRAISAL_YEARS + 1, appraisal_latest + 1)
         )
         ingest_appraisal_reports(
-            conn, client, secret, areas=areas, years=appraisal_years
+            conn, client, areas=areas, years=appraisal_years
         )
 
         land_latest = _latest_land_year(client)
-        discover_land_price_tiles(conn, client, secret, year=land_latest)
+        discover_land_price_tiles(conn, client, year=land_latest)
 
     # フェーズ0 で長時間保持した接続を一度閉じ、フェーズ1 は新しい接続で開始する
     # (DuckLake バックエンドの idle 接続が枯渇するのを避ける)
     land_years = list(range(LAND_START_YEAR, land_latest + 1))
-    with _ducklake_connect() as (conn, secret), ReinfolibClient(api_key) as client:
+    with _ducklake_connect() as conn, ReinfolibClient(api_key) as client:
         tiles = _known_land_tiles(conn)
-        ingest_land_prices(conn, client, secret, tiles=tiles, years=land_years)
+        ingest_land_prices(conn, client, tiles=tiles, years=land_years)
 
-    with _ducklake_connect() as (conn, secret), _api_session(api_key) as sess:
+    with _ducklake_connect() as conn, _api_session(api_key) as sess:
         tiles = _scan_tiles(TILE_Z)
-        ingest_urban_planning_areas(conn, sess, secret, tiles=tiles)
-        ingest_tile_layers(conn, sess, secret, tiles=tiles)
+        ingest_urban_planning_areas(conn, sess, tiles=tiles)
+        ingest_tile_layers(conn, sess, tiles=tiles)
 
     dbt = dbtRunner()
     for cmd in (
@@ -251,7 +254,7 @@ def main() -> None:
     # 公開の直前なので、ここでの失敗でビルドを落とさない。カバレッジはログに
     # 出すための診断で、公開を止める判断には使っていない
     try:
-        with _ducklake_connect() as (conn, _):
+        with _ducklake_connect() as conn:
             _verify_land_coverage(conn)
     except duckdb.Error as exc:
         logger.warning("land coverage: 検証できなかった: %s", exc)
@@ -260,7 +263,6 @@ def main() -> None:
 def ingest_trade_prices(
     conn: duckdb.DuckDBPyConnection,
     client: ReinfolibClient,
-    secret: Secret,
     *,
     areas: list[str],
     quarters: list[YearQuarter],
@@ -304,7 +306,6 @@ def ingest_trade_prices(
         conn.execute(f"INSERT INTO {TABLE} SELECT * FROM _batch")
         conn.execute("COMMIT")
         conn.unregister("_batch")
-        secret.refresh_if_due()
 
         logger.info("XIT001 area=%s %dQ%d: %d rows", area, year, quarter, len(rows))
 
@@ -337,7 +338,6 @@ def _latest_appraisal_year(client: ReinfolibClient) -> int:
 def ingest_appraisal_reports(
     conn: duckdb.DuckDBPyConnection,
     client: ReinfolibClient,
-    secret: Secret,
     *,
     areas: list[str],
     years: list[int],
@@ -371,7 +371,6 @@ def ingest_appraisal_reports(
         state[(year, area, division)] = today
         if (done + 1) % 100 == 0:
             _save_appraisal_state(conn, state)
-            secret.refresh_if_due()
         if not rows:
             continue
         fetched += 1
@@ -395,7 +394,6 @@ def ingest_appraisal_reports(
         conn.execute(f"INSERT INTO {APPRAISAL_TABLE} SELECT * FROM _batch")
         conn.execute("COMMIT")
         conn.unregister("_batch")
-        secret.refresh_if_due()
 
         logger.info(
             "XCT001 %d area=%s division=%s: %d rows", year, area, division, len(rows)
@@ -526,7 +524,6 @@ def _latest_land_year(client: ReinfolibClient) -> int:
 def discover_land_price_tiles(
     conn: duckdb.DuckDBPyConnection,
     client: ReinfolibClient,
-    secret: Secret,
     *,
     year: int,
 ) -> list[tuple[int, int]]:
@@ -574,7 +571,6 @@ def discover_land_price_tiles(
         if (i + 1) % 1000 == 0:
             _checkpoint_tiles(conn, batch, i + 1, len(scan))
             batch = []
-            secret.refresh_if_due()
             n = conn.execute(f"SELECT count(*) FROM {LAND_TILES_TABLE}").fetchone()[0]
             logger.info("  scanned %d/%d, found %d", i + 1, len(scan), n)
     _checkpoint_tiles(conn, batch, len(scan), len(scan))
@@ -641,7 +637,6 @@ def _known_land_tiles(conn: duckdb.DuckDBPyConnection) -> list[tuple[int, int]]:
 def ingest_land_prices(
     conn: duckdb.DuckDBPyConnection,
     client: ReinfolibClient,
-    secret: Secret,
     *,
     tiles: list[tuple[int, int]],
     years: list[int],
@@ -701,7 +696,6 @@ def ingest_land_prices(
         written += len(rows)
         if (done + 1) % 100 == 0:
             _save_tile_state(conn, LAND_TILE_STATE, state)
-            secret.refresh_if_due()
             logger.info("  tiles %d/%d, rows %d", done + 1, len(queue), written)
     _save_tile_state(conn, LAND_TILE_STATE, state)
 
@@ -872,7 +866,6 @@ def _fetch_features(
 
 def _ingest_tiles(
     conn: duckdb.DuckDBPyConnection,
-    secret: Secret,
     *,
     label: str,
     table: str,
@@ -947,7 +940,6 @@ def _ingest_tiles(
         written += len(rows)
         if (done + 1) % 200 == 0:
             _save_tile_state(conn, state_table, state)
-            secret.refresh_if_due()
             logger.info(
                 "  %s tiles %d/%d, rows %d", label, done + 1, len(queue), written
             )
@@ -1002,7 +994,6 @@ def _ensure_table(
 def ingest_urban_planning_areas(
     conn: duckdb.DuckDBPyConnection,
     session: requests.Session,
-    secret: Secret,
     *,
     tiles: list[tuple[int, int]],
 ) -> None:
@@ -1017,7 +1008,6 @@ def ingest_urban_planning_areas(
     _ensure_table(conn, URBAN_TABLE, URBAN_SCHEMA)
     _ingest_tiles(
         conn,
-        secret,
         label="urban planning",
         table=URBAN_TABLE,
         schema=URBAN_SCHEMA,
@@ -1049,7 +1039,6 @@ def _urban_feature_to_row(f: dict, x: int, y: int) -> dict:
 def ingest_tile_layers(
     conn: duckdb.DuckDBPyConnection,
     session: requests.Session,
-    secret: Secret,
     *,
     tiles: list[tuple[int, int]],
 ) -> None:
@@ -1070,7 +1059,6 @@ def ingest_tile_layers(
         table = f"reinfolib._source.{name}"
         _ingest_tiles(
             conn,
-            secret,
             label=f"{endpoint} {name}",
             table=table,
             schema=TILE_LAYER_SCHEMA,

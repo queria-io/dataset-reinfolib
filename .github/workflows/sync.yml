@@ -1,10 +1,8 @@
-name: Sync
+name: Apply
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "*.md"
   schedule:
     - cron: "0 19 * * *" # 毎日 04:00 JST
   workflow_dispatch:
@@ -15,9 +13,15 @@ concurrency:
 
 jobs:
   sync:
+    # Queria への書き込みは GitHub Actions の OIDC で 1 時間のトークンを取って行う
+    permissions:
+      contents: read
+      id-token: write
     uses: queria-io/dataset-shared/.github/workflows/sync.yml@main
     with:
       dataset_name: reinfolib
       # 共通の既定 90 分では足りない。成功ランの実測は最大 131 分
       timeout_minutes: 180
-    secrets: inherit
+    secrets:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      REINFOLIB_API_KEY: ${{ secrets.REINFOLIB_API_KEY }}
