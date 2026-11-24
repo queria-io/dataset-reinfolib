@@ -1,15 +1,13 @@
-schema: regulation
-name: mart_special_watch_areas
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 title: 特別注視区域
 description: |-
   重要土地等調査法に基づく特別注視区域のポリゴンを、1 つの区域名を 1 行として持つテーブルです。区域内の一定面積以上の土地・建物の売買などは、売主と買主の双方が事前に届け出る必要があります。
 
   - 範囲は概ねの位置です。正式な範囲は内閣府の公示で確認してください
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-  - path: https://www.cao.go.jp/tochi-chosa/kuiki.html
-fields:
+  - reinfolib
+  - kuiki
+columns:
   - name: area_name
     title: 特別注視区域名
   - name: geom

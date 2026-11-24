@@ -1,5 +1,4 @@
-schema: disaster
-name: mart_liquefaction_tendency
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 title: 地形区分に基づく液状化の発生傾向
 description: |-
   国土交通省都市局の「地形区分に基づく液状化の発生傾向図」を、250m メッシュごとに微地形区分と液状化の発生傾向で持つテーブルです。
@@ -7,11 +6,10 @@ description: |-
   - 地形から見た相対的な傾向で、特定の地震や震度を想定した危険度ではありません
   - 埋立地や盛土などの人工改変地の細かい位置は反映されていません
   - 水部（河道・湖沼）は原則として評価していません
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-  - path: https://www.mlit.go.jp/toshi/toshi_tobou_tk_000038.html
-fields:
+  - reinfolib
+  - toshi_tobou_tk_000038
+columns:
   - name: mesh_code
     title: 250m メッシュコード
     description: 10 桁。3 次メッシュ（8 桁）を 2 分の 1、4 分の 1 に分けた番号を続けたもの

@@ -170,6 +170,10 @@ mart_land_prices と結合するときは year・prefecture_code・standard_lot_
 ## 更新
 
 ```bash
+git clone https://github.com/queria-io/dataset-shared.git shared  # 初回のみ
+git -C shared pull
 uv sync
-bash scripts/build.sh
+REINFOLIB_API_KEY=... scripts/build.sh
 ```
+
+取引価格・地価・タイルの区域は増分で取得します。取得済みのデータと取得の状態は `_source` スキーマのテーブルに置き、前回のバージョンから引き継いで続きから取得します。

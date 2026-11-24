@@ -2,7 +2,6 @@ version: 2
 
 models:
   - name: mart_disaster_history
-    description: 国土調査（土地履歴調査）の災害履歴。
     columns:
       - name: disaster_type_code
       - name: disaster_type

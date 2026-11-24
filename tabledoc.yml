@@ -1,0 +1,67 @@
+$schema: https://tabledoc.queria.io/schemas/dataset/v1.json
+name: reinfolib
+title: 不動産情報ライブラリ
+description: |-
+  国土交通省の不動産情報ライブラリの API から取得した、全国の不動産取引価格・地価公示・地価調査・鑑定評価書、都市計画決定GISデータ、防災情報、重要土地等調査法の特別注視区域です。地点と区域は座標と形状を持ちます。
+  このサービスは、国土交通省の不動産情報ライブラリのAPI機能を使用していますが、提供情報の最新性、正確性、完全性等が保証されたものではありません。
+image: cover.png
+topics:
+  - 不動産
+  - 価格
+  - 取引
+  - 地価
+  - 鑑定評価
+  - 都市計画
+  - 用途地域
+  - 液状化
+  - 避難場所
+  - 国土交通省
+synonyms:
+  - 不動産取引価格
+  - 地価公示
+  - 地価調査
+  - 実勢価格
+  - 鑑定評価書
+  - 標準地
+  - 用途地域
+  - 容積率
+  - 建蔽率
+  - 液状化
+  - 避難場所
+  - 地区計画
+language: ja
+licenses:
+  - JP-PDL-1.0
+sources:
+  - id: reinfolib
+    title: 不動産情報ライブラリ（国土交通省）
+    url: https://www.reinfolib.mlit.go.jp/
+  - id: download
+    url: https://nlftp.mlit.go.jp/kokjo/inspect/landclassification/download.html
+  - id: hinanbasho
+    url: https://www.gsi.go.jp/bousaichiri/hinanbasho.html
+  - id: toshi_tobou_tk_000038
+    url: https://www.mlit.go.jp/toshi/toshi_tobou_tk_000038.html
+  - id: kuiki
+    url: https://www.cao.go.jp/tochi-chosa/kuiki.html
+contributors:
+  - id: mlit
+    title: 国土交通省
+    url: https://www.mlit.go.jp/
+    roles:
+      - rightsHolder
+temporal_coverage:
+  start: '1995'
+  end:
+spatial_coverage:
+  - JP
+update_frequency: daily
+schemas:
+  - name: main
+    title: 不動産価格情報
+  - name: urban_planning
+    title: 都市計画決定GISデータ
+  - name: disaster
+    title: 防災情報
+  - name: regulation
+    title: 土地利用の規制

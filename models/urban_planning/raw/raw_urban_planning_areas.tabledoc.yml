@@ -1,8 +1,7 @@
-schema: urban_planning
-name: raw_urban_planning_areas
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 description: 不動産情報ライブラリ XKT001 都市計画決定GISデータ（都市計画区域・区域区分）
-published: false
-fields:
+hidden: true
+columns:
   - name: prefecture
     description: 都道府県名
   - name: city_code

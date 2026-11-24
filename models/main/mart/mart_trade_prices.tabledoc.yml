@@ -1,12 +1,9 @@
-schema: main
-name: mart_trade_prices
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 title: 不動産取引価格情報
-description: |-
-  全国の不動産の取引価格と成約価格を、1 件 1 行で持つテーブルです。物件の種類・所在地・価格・面積・単価・建築年・構造・都市計画・取引時期を持ちます。
-published: true
+description: 全国の不動産の取引価格と成約価格を、1 件 1 行で持つテーブルです。物件の種類・所在地・価格・面積・単価・建築年・構造・都市計画・取引時期を持ちます。
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-fields:
+  - reinfolib
+columns:
   - name: property_type
     title: 種類
     description: 宅地(土地と建物)、土地、中古マンション等、農地、林地
@@ -14,7 +11,7 @@ fields:
     title: 地域
   - name: municipality_code
     title: 市区町村コード
-    semantic: { role: entity, name: city }
+    entity: city
   - name: prefecture
     title: 都道府県名
   - name: municipality
@@ -70,7 +67,7 @@ fields:
     title: 地区コード
   - name: prefecture_code
     title: 都道府県コード
-    semantic: { role: entity, name: prefecture }
+    entity: prefecture
   - name: year
     title: 取得年
   - name: quarter

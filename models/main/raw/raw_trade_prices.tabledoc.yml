@@ -1,8 +1,7 @@
-schema: main
-name: raw_trade_prices
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 description: 不動産情報ライブラリ XIT001 取引価格・成約価格データ
-published: false
-fields:
+hidden: true
+columns:
   - name: Type
     description: 種類 (宅地、中古マンション等)
   - name: Region

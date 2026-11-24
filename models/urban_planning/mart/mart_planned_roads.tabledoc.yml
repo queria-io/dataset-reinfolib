@@ -1,5 +1,4 @@
-schema: urban_planning
-name: mart_planned_roads
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
 title: 都市計画道路
 description: |-
   都市計画道路の線と、都市計画で定めた広場の範囲を持つテーブルです。令和7年度の都市計画決定GISデータで、原典に路線名が無いので、1 行は市区町村・種類・告示の組です。
@@ -7,18 +6,17 @@ description: |-
   - 範囲は概ねの位置で、重要事項説明や建築確認申請の根拠には使えません
   - 東京都の特別区のように、都市計画道路があっても原典に無い市区町村があります
   - 設定年月日と告示番号は原典の文字列のままです（和暦・西暦・略記が混在）
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-fields:
+  - reinfolib
+columns:
   - name: prefecture_code
     title: 都道府県コード
-    semantic: { role: entity, name: prefecture }
+    entity: prefecture
   - name: prefecture_name
     title: 都道府県名
   - name: city_code
     title: 市区町村コード
-    semantic: { role: entity, name: city }
+    entity: city
   - name: city_name
     title: 市区町村名
   - name: kubun_id

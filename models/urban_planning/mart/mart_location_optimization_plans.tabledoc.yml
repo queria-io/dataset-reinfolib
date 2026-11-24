@@ -1,29 +1,29 @@
-schema: urban_planning
-name: mart_urban_planning_areas
-title: 都市計画区域・区域区分
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
+title: 立地適正化計画
 description: |-
-  都市計画区域・市街化区域・市街化調整区域のポリゴンを、市区町村と区域区分の組ごとに 1 行で持つテーブルです。地点が市街化区域か市街化調整区域かの判定に使えます。
+  立地適正化計画の区域（立地適正化計画区域・居住誘導区域・都市機能誘導区域など）のポリゴンを、区域の種類ごとに持つテーブルです。令和7年度の都市計画決定GISデータです。
 
   - 範囲は概ねの位置で、重要事項説明や建築確認申請の根拠には使えません
   - 地方公共団体が GIS データを出していない区域は含みません
   - 設定年月日と告示番号は原典の文字列のままです（和暦・西暦・略記が混在）
-published: true
 sources:
-  - path: https://www.reinfolib.mlit.go.jp/
-fields:
+  - reinfolib
+columns:
   - name: prefecture_code
     title: 都道府県コード
-    semantic: { role: entity, name: prefecture }
+    entity: prefecture
   - name: prefecture_name
     title: 都道府県名
   - name: city_code
     title: 市区町村コード
-    semantic: { role: entity, name: city }
+    entity: city
   - name: city_name
     title: 市区町村名
   - name: kubun_id
-    title: 区分コード
-    description: 21=都市計画区域、22=市街化区域、23=市街化調整区域
+    title: 区域コード
+    description: 0=立地適正化計画区域、31=居住誘導区域、32=都市機能誘導区域
+  - name: zone_name
+    title: 区域名
   - name: area_classification
     title: 区域区分
   - name: decision_date
@@ -41,5 +41,5 @@ fields:
   - name: first_decision_date
     title: 当初決定日
   - name: geom
-    title: 区域のポリゴン
-    description: EPSG:6668。原典が分割して配信する区域を、市区町村・区域区分ごとに結合したもの
+    title: ポリゴン
+    description: EPSG:6668。タイルで切られて配信される断片を、属性が同じものごとに結合したもの
