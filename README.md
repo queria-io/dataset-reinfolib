@@ -47,6 +47,11 @@ ORDER BY year;
 - 都市計画・防災・規制の区域の範囲は概ねの位置です。重要事項説明や建築確認申請の根拠には使えません
 - 都市計画決定GISデータは、地方公共団体が GIS データを出していない区域を含みません。都市計画決定があっても行が無い区域があります
 - 地価の `current_price` は円/㎡です。`front_road_width` の単位は `mart_land_prices` が 0.1m、`mart_appraisal_reports` が m で、テーブルによって違います
+- 取引価格は個々の取引なので外れ値を含みます。地域の相場を見るときは平均より中央値を使い、件数の少ない地区は避けてください。面積や価格は元データの段階で丸めや上限（「2000㎡以上」など）が入っているため、そのまま平均すると偏ります
+- 取引時期は `year` と `quarter`（四半期）までで、日付は公開されていません。`trade_price` を建物込みで比較するときは `property_type` を統一し、`price_category` に取引価格と成約価格が混在するので比較するときは絞ってください
+- 市区町村コード（`municipality_code` / `city_code`）で lg_code や address_br と結合できます。地点の列（`geom`）を持つのは `mart_land_prices` と `mart_appraisal_reports` で、`mart_trade_prices` は地区名までしか位置を持たないため空間結合はできません
+- 都市計画の区域は市区町村ごとの行に分かれているので、都道府県や全国の面積を見るときは合算してください。区域が無い場所には「指定が無い」場所のほかに「収録していない」場所が含まれます
+- 洪水・土砂災害などの浸水想定や警戒区域は、このデータセットではなく nlftp の hazard スキーマにあります
 
 ## main.mart_trade_prices
 
@@ -107,12 +112,12 @@ ORDER BY year;
 1つの標準地につき2通の鑑定評価書があり、評価額は評価書ごとに異なります。appraised_price も
 published_price も鑑定評価書に書かれた値で、公表される公示価格とは一致しないことがあるため、
 公表値は mart_land_prices の current_price を参照してください。適用していない鑑定評価手法は
-価格が0で入ります。
+価格が0で入るので、平均を取るときは0を除いてください。
 
 mart_land_prices と結合するときは year・prefecture_code・standard_lot_number の3つで
 突き合わせます。標準地番号が一意なのは都道府県の中だけで、mart_land_prices は同じ地点を
 年ごとに持つためです。収録は地価公示だけなので、mart_land_prices 側は land_price_type = 0
-に絞ります。1地点に評価書が2通あるので、結合は1対2になります。
+に絞ります。1地点に評価書が2通あるので、結合は1対2になります。地点ごとに集計するときは、先に評価書側を地点ごとに集約してください。
 
 ## urban_planning.mart_urban_planning_areas
 
@@ -175,5 +180,7 @@ git -C shared pull
 uv sync
 REINFOLIB_API_KEY=... scripts/build.sh
 ```
+
+手元で実行するときは、データセットに書き込める Queria の API トークンを `FDL_TOKEN` に設定するか、先に `queria login` を実行します。
 
 取引価格・地価・タイルの区域は増分で取得します。取得済みのデータと取得の状態は `_source` スキーマのテーブルに置き、前回のバージョンから引き継いで続きから取得します。
